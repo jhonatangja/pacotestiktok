@@ -13,8 +13,10 @@
 // ---------------------------------------------------------------------------
 
 export const SUPABASE = {
-  url: "",       // ex.: https://abcdxyz.supabase.co
-  anonKey: "",   // a chave "anon public" (começa com eyJ...)
+  url: "https://fedsgmppmyodyxykvqcz.supabase.co",
+  // Chave "publishable" — o equivalente novo da anon. É segura no navegador
+  // porque todas as tabelas têm Row Level Security e as políticas exigem login.
+  anonKey: "sb_publishable_KxN5JUGWKCsuRpBsfUa1kw_UrK-YdH6",
 
   // O Supabase exige e-mail no login, mas o operador só digita um usuário
   // simples (ex.: "base"). O sistema completa com este domínio interno por
