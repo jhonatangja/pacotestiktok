@@ -1,0 +1,26 @@
+# ---------------------------------------------------------------------------
+# NUNCA versionar planilhas da operação.
+#
+# Os exports do JMS carregam dados reais: códigos de pedido, CEPs, nomes de
+# destinatários, endereços e nomes de motoristas. O repositório é público —
+# o sistema roda 100% no navegador e nenhum dado precisa sair da máquina.
+# ---------------------------------------------------------------------------
+*.xlsx
+*.xls
+*.csv
+~$*
+
+# Relatórios gerados pelo próprio sistema
+pacotes-tiktok-*.csv
+
+# Configuração local do Claude Code (permissões desta máquina)
+.claude/settings.local.json
+
+# Sistema operacional / editores
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
+
+node_modules/

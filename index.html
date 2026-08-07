@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Controle de Pacotes · TikTok Shop</title>
+<meta name="theme-color" content="#0B2A5B" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar__brand">
+    <span class="mark">📦</span>
+    <div>
+      <span class="eyebrow">Operação TikTok Shop</span>
+      <h1>Controle de Pacotes</h1>
+    </div>
+  </div>
+
+  <div class="topbar__meta" id="topMeta" hidden>
+    <span class="meta-chip" id="metaPacotes">—</span>
+    <span class="meta-chip" id="metaAtualizado">—</span>
+  </div>
+
+  <div class="topbar__actions">
+    <button class="btn btn--ghost" id="btnIrImportar">Importar planilha</button>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs" hidden>
+  <button class="tab is-active" data-screen="painel">
+    Painel de Ação <span class="tab__count" id="countPainel">0</span>
+  </button>
+  <button class="tab" data-screen="cobranca">
+    Cobrança <span class="tab__count" id="countCobranca">0</span>
+  </button>
+  <button class="tab" data-screen="galpao">
+    Galpão <span class="tab__count" id="countGalpao">0</span>
+  </button>
+  <button class="tab" data-screen="resolvidos">
+    Resolvidos <span class="tab__count" id="countResolvidos">0</span>
+  </button>
+  <button class="tab" data-screen="pacotes">
+    Todos os pacotes <span class="tab__count" id="countPacotes">0</span>
+  </button>
+</nav>
+
+<main class="content">
+
+  <!-- ============================ IMPORTAR ============================ -->
+  <section class="screen" id="screenImportar">
+    <div class="wrap wrap--narrow">
+      <div class="page-head">
+        <h2>Importar histórico do JMS</h2>
+        <p>Envie o export <strong>Consulta de escaneamento por número de pedido</strong>. Cada importação
+           soma ao histórico já guardado — reenviar o mesmo arquivo não duplica nada e nunca apaga
+           as tratativas registradas aqui.</p>
+      </div>
+
+      <label class="dropzone" id="dropzone" for="fileInput">
+        <span class="dropzone__icon">📄</span>
+        <span class="dropzone__title" id="dropzoneTitle">Clique ou arraste o arquivo</span>
+        <span class="dropzone__hint">.xlsx, .xls ou .csv</span>
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" hidden />
+      </label>
+
+      <div class="import-result" id="importResult" hidden></div>
+
+      <div class="card card--soft">
+        <h3>Complementar com a Gestão de Bases <span class="hint">(opcional)</span></h3>
+        <p class="hint" style="margin-bottom:12px">
+          O relatório de escaneamento não traz destinatário, endereço nem valor — e são esses dados
+          que resolvem "cliente ausente" e "endereço incorreto". Envie o
+          <strong>Exportar carta de porte de entrega</strong> para cruzar pelo número do pedido.
+        </p>
+        <label class="dropzone dropzone--sm" id="dropzoneBase" for="fileInputBase">
+          <span class="dropzone__icon">🧾</span>
+          <span class="dropzone__title" id="dropzoneBaseTitle">Enviar Gestão de Bases</span>
+          <span class="dropzone__hint">.xlsx, .xls ou .csv</span>
+          <input type="file" id="fileInputBase" accept=".xlsx,.xls,.csv" hidden />
+        </label>
+        <div id="baseResult" hidden style="margin-top:12px"></div>
+      </div>
+
+      <div class="card card--soft" id="baseAtual" hidden>
+        <h3>Base atual</h3>
+        <dl class="kv" id="baseAtualKv"></dl>
+        <div class="card__actions">
+          <button class="btn btn--primary" id="btnCopiarCodigos">Copiar códigos para reconsultar</button>
+          <button class="btn btn--ghost" id="btnBaixarRelatorio">Baixar relatório (CSV)</button>
+          <button class="btn btn--ghost btn--danger" id="btnLimparBase">Apagar histórico importado</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================= PAINEL ============================= -->
+  <section class="screen" id="screenPainel" hidden>
+    <div class="wrap">
+      <div class="quickbar">
+        <span class="quickbar__label">🔴 Lançar tickets do cliente</span>
+        <div class="quickbar__row">
+          <textarea id="ticketBulk" class="input quickbar__input" rows="1"
+                    placeholder="Cole os códigos com reclamação aberta — um por linha, ou separados por vírgula/espaço"></textarea>
+          <button class="btn btn--primary" id="btnMarcarTickets">Marcar</button>
+          <button class="btn btn--ghost" id="btnRemoverTickets">Remover</button>
+        </div>
+        <div class="quickbar__out" id="ticketBulkResult" hidden></div>
+      </div>
+
+      <div class="stats" id="stats"></div>
+      <div class="groups" id="grupos"></div>
+    </div>
+  </section>
+
+  <!-- ============================ PACOTES ============================= -->
+  <section class="screen" id="screenPacotes" hidden>
+    <div class="wrap">
+      <div class="toolbar">
+        <input type="search" id="buscaPacote" class="input input--search"
+               placeholder="Buscar por código, motorista ou cidade…" />
+        <select id="filtroSituacao" class="input input--select">
+          <option value="">Todas as situações</option>
+        </select>
+      </div>
+      <div class="cards" id="listaPacotes"></div>
+    </div>
+  </section>
+
+  <!-- =========================== COBRANÇA ============================= -->
+  <section class="screen" id="screenCobranca" hidden>
+    <div class="wrap"><div id="cobranca"></div></div>
+  </section>
+
+  <!-- ============================ GALPÃO ============================== -->
+  <section class="screen" id="screenGalpao" hidden>
+    <div class="wrap"><div id="galpao"></div></div>
+  </section>
+
+  <!-- ========================== RESOLVIDOS ============================ -->
+  <section class="screen" id="screenResolvidos" hidden>
+    <div class="wrap"><div id="resolvidos"></div></div>
+  </section>
+
+</main>
+
+<!-- ========================= DETALHE DO PACOTE ========================= -->
+<div class="drawer-overlay" id="drawerOverlay" hidden>
+  <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitulo">
+    <header class="drawer__head">
+      <div>
+        <span class="eyebrow" id="drawerSituacao">—</span>
+        <h2 id="drawerTitulo">—</h2>
+      </div>
+      <button class="icon-btn" id="btnFecharDrawer" aria-label="Fechar">✕</button>
+    </header>
+    <div class="drawer__body" id="drawerBody"></div>
+  </aside>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="vendor/xlsx.full.min.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

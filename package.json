@@ -1,0 +1,10 @@
+{
+  "name": "gestao-pacotes-tiktok",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Sistema interno de gestão de pacotes da operação TikTok Shop (base F RVD - GO)",
+  "scripts": {
+    "validate": "node tools/validate.js"
+  }
+}

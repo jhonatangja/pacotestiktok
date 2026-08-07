@@ -1,0 +1,4 @@
+{
+  "//": "O SheetJS é UMD/CommonJS. O projeto é ESM (type:module na raiz), então esta pasta é escopada de volta para CommonJS — só assim o validador em Node consegue carregá-lo com createRequire. No navegador o arquivo entra por <script> clássico e isto é irrelevante.",
+  "type": "commonjs"
+}
