@@ -9,9 +9,10 @@
 
 import { mensagemCobranca, resumoMotorista, atrasados } from "../charge.js";
 import { escapeHtml, tomVars, duracao, dataHora, iniciais } from "./format.js";
+import { telefoneValido, formatarTelefone } from "../contatos.js";
 import { listaVazia } from "./cards.js";
 
-export function renderCobranca(el, byDriver, selecionado, cobrancas, enrichment = {}) {
+export function renderCobranca(el, byDriver, selecionado, cobrancas, enrichment = {}, contatos = {}) {
   const comAlgo = byDriver.filter((m) => m.totalAbertos || m.totalRebipes || m.ocorrenciasLentas.length);
 
   if (!comAlgo.length) {
@@ -24,24 +25,25 @@ export function renderCobranca(el, byDriver, selecionado, cobrancas, enrichment 
   el.innerHTML = `
     <div class="split ${selecionado ? "is-detail" : ""}">
       <div class="split__list">
-        ${comAlgo.map((m) => cardMotorista(m, m.driver === atual.driver, cobrancas)).join("")}
+        ${comAlgo.map((m) => cardMotorista(m, m.driver === atual.driver, cobrancas, contatos)).join("")}
       </div>
-      <div class="split__detail">${detalheMotorista(atual, cobrancas, enrichment)}</div>
+      <div class="split__detail">${detalheMotorista(atual, cobrancas, enrichment, contatos)}</div>
     </div>`;
 }
 
 // ---------------------------------------------------------------------------
 
-function cardMotorista(m, ativo, cobrancas) {
+function cardMotorista(m, ativo, cobrancas, contatos) {
   const nAtrasados = atrasados(m);
   const tom = nAtrasados ? "atrasado" : m.totalRebipes ? "ocorrencia" : "ok";
   const ultima = ultimaCobranca(m, cobrancas);
+  const temZap = telefoneValido(contatos[m.driver]?.telefone);
 
   return `
     <button class="driver ${ativo ? "is-active" : ""}" style="${tomVars(tom)}" data-driver="${escapeHtml(m.driver)}">
       <span class="avatar">${escapeHtml(iniciais(m.driver))}</span>
       <span class="driver__body">
-        <span class="driver__name">${escapeHtml(m.driver)}</span>
+        <span class="driver__name">${escapeHtml(m.driver)}${temZap ? ' <span class="driver__zap" title="WhatsApp cadastrado">📱</span>' : ""}</span>
         <span class="driver__meta">${escapeHtml(resumoMotorista(m))}</span>
         ${ultima ? `<span class="driver__charged">cobrado ${dataHora(ultima)}</span>` : ""}
       </span>
@@ -49,8 +51,10 @@ function cardMotorista(m, ativo, cobrancas) {
     </button>`;
 }
 
-function detalheMotorista(m, cobrancas, enrichment) {
+function detalheMotorista(m, cobrancas, enrichment, contatos = {}) {
   const nAtrasados = atrasados(m);
+  const telefone = contatos[m.driver]?.telefone ?? "";
+  const zapOk = telefoneValido(telefone);
 
   // ticket na frente, depois quem estourou o prazo, depois o resto
   const ordenados = [...m.abertos].sort((a, b) =>
@@ -77,17 +81,28 @@ function detalheMotorista(m, cobrancas, enrichment) {
       </div>
     </div>
 
+    <div class="contact-bar ${zapOk ? "is-set" : ""}">
+      <span class="contact-bar__icon">📱</span>
+      <input class="input contact-bar__input" id="contatoTelefone" inputmode="tel"
+             placeholder="WhatsApp com DDD — ex.: (64) 99999-8888"
+             value="${escapeHtml(zapOk ? formatarTelefone(telefone) : telefone)}" />
+      <button class="btn btn--ghost" id="btnSalvarContato">Salvar</button>
+    </div>
+
     <div class="detail-body">
       ${linhas.length ? linhas.map(({ d, tipo }) => linhaPacote(d, tipo, enrichment)).join("")
         : `<p style="color:var(--ink-3);font-size:13.5px">Sem pacotes em aberto.</p>`}
 
       <div class="charge">
         <div class="charge__actions">
-          <button class="btn btn--primary" id="btnGerarCobranca">Gerar cobrança</button>
-          <button class="btn btn--ghost" id="btnCopiarCobranca" disabled>Copiar mensagem</button>
-          <span class="hint" id="chargeHint"></span>
+          <button class="btn btn--primary btn--zap" id="btnCobrarZap" ${zapOk ? "" : "disabled"}>
+            📲 Cobrar no WhatsApp
+          </button>
+          <button class="btn btn--ghost" id="btnGerarCobranca">Ver mensagem</button>
+          <button class="btn btn--ghost" id="btnCopiarCobranca" disabled>Copiar</button>
+          <span class="hint" id="chargeHint">${zapOk ? "" : "Cadastre o WhatsApp acima para cobrar com um clique."}</span>
         </div>
-        <textarea class="charge__text" id="chargeText" readonly
+        <textarea class="charge__text" id="chargeText" readonly hidden
                   placeholder="A mensagem aparecerá aqui, pronta para colar no WhatsApp."></textarea>
       </div>
     </div>`;

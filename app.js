@@ -21,6 +21,7 @@ import { buildEnrichment } from "./src/enrich.js";
 import { codigosParaReconsultar, relatorioCsv, baixar, nomeDoArquivo } from "./src/export.js";
 import { cardPacote, listaVazia } from "./src/ui/cards.js";
 import { escapeHtml, dataHoraLonga } from "./src/ui/format.js";
+import { normalizarTelefone, telefoneValido, linkWhatsApp } from "./src/contatos.js";
 
 const $ = (id) => document.getElementById(id);
 const repo = createRepo();
@@ -38,6 +39,7 @@ const state = {
   cobrancas: {},        // { pkgId: { em, motorista } } — quem já foi cobrado e quando
   tratativas: {},       // { pkgId: tratativa } — dado do usuário, nunca vem do Excel
   enrichment: {},       // { pkgId: dados da Gestão de Bases }
+  contatos: {},         // { driver: { telefone } } — cadastrado uma vez, reutilizado
   pacoteAberto: null,
 };
 
@@ -79,6 +81,7 @@ async function recarregar() {
   state.cobrancas = (await repo.getMeta("cobrancas", {})) ?? {};
   state.tratativas = Object.fromEntries((await repo.getTreatments()).map((t) => [t.pkgId, t]));
   state.enrichment = Object.fromEntries((await repo.getEnrichment()).map((e) => [e.pkgId, e]));
+  state.contatos = Object.fromEntries((await repo.getContacts()).map((c) => [c.driver, c]));
   // as tratativas entram no motor porque o ticket do cliente reordena a fila
   const r = buildPackages(state.events, { sla: SLA_PADRAO, tratativas: state.tratativas });
   Object.assign(state, { packages: r.packages, byDriver: r.byDriver, resumo: r.resumo });
@@ -161,7 +164,7 @@ function renderTudo() {
 
   renderPainel(el, state.packages);
   renderListaPacotes();
-  renderCobranca(el.cobranca, state.byDriver, state.motorista, state.cobrancas, state.enrichment);
+  renderCobranca(el.cobranca, state.byDriver, state.motorista, state.cobrancas, state.enrichment, state.contatos);
   renderGalpao(el.galpao, state.packages, state.tratativas);
   renderResolvidos(el.resolvidos, state.packages, state.tratativas);
   renderBaseAtual();
@@ -529,13 +532,39 @@ el.cobranca.addEventListener("click", async (e) => {
   const motorista = e.target.closest("[data-driver]");
   if (motorista) {
     state.motorista = motorista.dataset.driver;
-    renderCobranca(el.cobranca, state.byDriver, state.motorista, state.cobrancas, state.enrichment);
+    renderCobranca(el.cobranca, state.byDriver, state.motorista, state.cobrancas, state.enrichment, state.contatos);
     return;
   }
 
   if (e.target.closest("[data-voltar]")) {
     state.motorista = null;
-    renderCobranca(el.cobranca, state.byDriver, state.motorista, state.cobrancas, state.enrichment);
+    renderCobranca(el.cobranca, state.byDriver, state.motorista, state.cobrancas, state.enrichment, state.contatos);
+    return;
+  }
+
+  // cadastra/atualiza o telefone do motorista selecionado
+  if (e.target.closest("#btnSalvarContato")) {
+    await salvarContato(motoristaAtual());
+    return;
+  }
+
+  // a cobrança de um clique: abre o WhatsApp no contato certo, mensagem pronta
+  if (e.target.closest("#btnCobrarZap")) {
+    const m = motoristaAtual();
+    if (!m) return;
+    const telefone = state.contatos[m.driver]?.telefone;
+    if (!telefoneValido(telefone)) {
+      $("chargeHint").textContent = "Cadastre um WhatsApp válido para cobrar com um clique.";
+      return;
+    }
+    const msg = mensagemCobranca(m, state.enrichment);
+    if (!msg) { $("chargeHint").textContent = "Nada a cobrar deste motorista."; return; }
+
+    // abre ANTES de qualquer await: alguns navegadores só permitem window.open
+    // como consequência direta do clique, não depois de uma promessa resolver
+    window.open(linkWhatsApp(telefone, msg), "_blank", "noopener");
+    await registrarCobranca(m);
+    toast("WhatsApp aberto com a cobrança pronta.", "good");
     return;
   }
 
@@ -549,6 +578,7 @@ el.cobranca.addEventListener("click", async (e) => {
       return;
     }
     texto.value = msg;
+    texto.hidden = false;
     $("btnCopiarCobranca").disabled = false;
     hint.textContent = `${m.totalAbertos} em aberto${m.totalRebipes ? ` · ${m.totalRebipes} rebipe(s)` : ""}.`;
     return;
@@ -562,6 +592,40 @@ el.cobranca.addEventListener("click", async (e) => {
     toast("Mensagem copiada — cole no WhatsApp.", "good");
   }
 });
+
+// Enter no campo de telefone salva sem precisar mirar no botão
+el.cobranca.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && e.target.id === "contatoTelefone") {
+    e.preventDefault();
+    salvarContato(motoristaAtual());
+  }
+});
+
+/**
+ * Guarda o telefone do motorista. Normaliza antes de salvar para o link do
+ * WhatsApp sair sempre correto, independente de como o operador digitou.
+ */
+async function salvarContato(m) {
+  if (!m) return;
+  const bruto = $("contatoTelefone")?.value ?? "";
+  const telefone = normalizarTelefone(bruto);
+
+  if (bruto.trim() && !telefoneValido(telefone)) {
+    $("chargeHint").textContent = "Número fora do padrão. Use DDD + número, ex.: (64) 99999-8888.";
+    return;
+  }
+
+  if (!bruto.trim()) {
+    await repo.deleteContact(m.driver);
+    delete state.contatos[m.driver];
+    toast("Contato removido.", "good");
+  } else {
+    await repo.putContact({ driver: m.driver, telefone });
+    state.contatos[m.driver] = { driver: m.driver, telefone };
+    toast("WhatsApp salvo.", "good");
+  }
+  renderCobranca(el.cobranca, state.byDriver, state.motorista, state.cobrancas, state.enrichment, state.contatos);
+}
 
 function motoristaAtual() {
   const comAlgo = state.byDriver.filter((m) => m.totalAbertos || m.totalRebipes || m.ocorrenciasLentas.length);
@@ -590,9 +654,10 @@ async function registrarCobranca(m) {
 
   // o re-render recria o textarea; a mensagem recém-copiada continua na tela
   const msg = $("chargeText")?.value ?? "";
-  renderCobranca(el.cobranca, state.byDriver, state.motorista, state.cobrancas, state.enrichment);
+  renderCobranca(el.cobranca, state.byDriver, state.motorista, state.cobrancas, state.enrichment, state.contatos);
   if (msg && $("chargeText")) {
     $("chargeText").value = msg;
+    $("chargeText").hidden = false;
     $("btnCopiarCobranca").disabled = false;
     $("chargeHint").textContent = "Cobrança registrada agora.";
   }

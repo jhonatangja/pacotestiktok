@@ -86,6 +86,8 @@ node tools/validate.js
    duplica nada e nunca apaga tratativas.
 2. **Painel de Ação** — as pendências agrupadas pela ação que exigem.
 3. **Cobrança** — por motorista, com mensagem de WhatsApp pronta citando as três saídas.
+   Cadastre o WhatsApp do motorista uma vez e o botão **📲 Cobrar no WhatsApp** abre a
+   conversa já no contato certo, com a mensagem montada — um clique por cobrança.
 4. **Galpão** — cada pacote retornado vira tarefa com responsável, prazo e registros.
 5. **Resolvidos** — o arquivo dos casos encerrados, fora do caminho.
 6. **Copiar códigos para reconsultar** — devolve a lista de pedidos ainda em aberto,

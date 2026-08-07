@@ -502,6 +502,24 @@ p { margin: 0; }
 .driver__meta { display: block; font-size: 12px; color: var(--ink-2); }
 .driver__charged { display: block; font-size: 11px; color: var(--ok); font-weight: 600; margin-top: 1px; }
 
+.driver__zap { font-size: 11px; }
+
+/* barra de contato do motorista: cadastra o WhatsApp uma vez */
+.contact-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px; margin-bottom: 16px; border-radius: var(--radius-sm);
+  background: var(--surface-2); border: 1px solid var(--line);
+}
+.contact-bar.is-set {
+  background: var(--ok-bg); border-color: var(--ok-line);
+}
+.contact-bar__icon { font-size: 16px; flex: none; }
+.contact-bar__input { flex: 1; min-width: 0; font-size: 13.5px; }
+
+.btn--zap { background: #1FA855; box-shadow: 0 2px 8px rgba(31,168,85,.28); }
+.btn--zap:hover:not(:disabled) { background: #178a45; }
+.btn--zap:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
+
 .detail-head {
   display: flex; align-items: flex-start; gap: 11px; flex-wrap: wrap;
   padding-bottom: 14px; margin-bottom: 16px; border-bottom: 1px solid var(--line);

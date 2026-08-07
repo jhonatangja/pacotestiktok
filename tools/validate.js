@@ -16,6 +16,7 @@ import { buildEvents, dedupeEvents, mergeEvents } from "../src/ingest.js";
 import { buildPackages, codigosEmAberto } from "../src/domain.js";
 import { createMemoryRepo } from "../src/repo.js";
 import { separarCodigos } from "../src/tratativa.js";
+import { normalizarTelefone, telefoneValido, linkWhatsApp } from "../src/contatos.js";
 import { pacotesDoGalpao } from "../src/ui/galpao.js";
 import { pacotesResolvidos } from "../src/ui/resolvidos.js";
 import { FLAG, SITUACAO } from "../src/config.js";
@@ -189,6 +190,12 @@ const reaberto = buildPackages(limpos, {
 
 check("movimento após resolver reabre o caso", reaberto.resolvido, false);
 check("reabertura é sinalizada", reaberto.flags.includes(FLAG.MOVIMENTO_APOS_RESOLVIDA), true);
+
+// contato do motorista: normaliza qualquer forma de digitar para o wa.me
+check("telefone com máscara vira dígitos+55", normalizarTelefone("(64) 99999-8888"), "5564999998888");
+check("telefone sem DDD é inválido", telefoneValido("99999-8888"), false);
+check("link do WhatsApp embute a mensagem",
+  linkWhatsApp("64999998888", "oi").startsWith("https://wa.me/5564999998888?text="), true);
 
 // lançamento de tickets em lote: aceita a colagem como ela vem
 const colagem = "999881527748083\n999881549481448, 999881582349743\t999881527748083\n\n";
