@@ -100,7 +100,9 @@ node tools/validate.js
    Cadastre o WhatsApp do motorista uma vez e o botão **📲 Cobrar no WhatsApp** abre a
    conversa já no contato certo, com a mensagem montada — um clique por cobrança.
 4. **Galpão** — cada pacote retornado vira tarefa com responsável, prazo e registros.
-5. **Resolvidos** — o arquivo dos casos encerrados, fora do caminho.
+5. **Motoristas** — o cadastro de motoristas: todos que já apareceram num pacote, mais quem
+   você registrar à mão. Guarde o WhatsApp uma vez e cobre com um clique de qualquer tela.
+6. **Resolvidos** — o arquivo dos casos encerrados, fora do caminho.
 6. **Copiar códigos para reconsultar** — devolve a lista de pedidos ainda em aberto,
    pronta para colar na consulta do JMS no dia seguinte.
 
@@ -114,6 +116,19 @@ A resolução vale **enquanto o pacote não se mexer**. Se chegar um bipe poster
 encerramento, o caso reabre sozinho e reaparece nas pendências marcado como
 **"Voltou a se mover"** — dar baixa e o pacote continuar circulando é exatamente como uma
 tratativa desaparece do radar.
+
+## Retenção do histórico até finalizar
+
+O histórico de eventos é **append-only**: nada é apagado. Cada pacote guarda a linha do
+tempo completa desde a coleta, e ela só cresce a cada importação. Enquanto o pacote **não
+for finalizado** (marcado como resolvido), ele:
+
+- continua nas telas de pendência com a idade contando desde o recebimento na base;
+- entra na lista **Copiar códigos para reconsultar**, para você seguir puxando as
+  atualizações dele do JMS no dia seguinte.
+
+Quando é finalizado, sai das pendências e da lista de reconsulta, mas **permanece guardado**
+na aba Resolvidos com todo o histórico — nunca é descartado.
 
 Opcionalmente, envie também a planilha **Gestão de Bases**
 (`Exportar carta de porte de entrega*.xlsx`): ela traz destinatário, endereço, bairro e

@@ -15,6 +15,7 @@ import { renderPacote } from "./src/ui/pacote.js";
 import { renderCobranca } from "./src/ui/cobranca.js";
 import { renderGalpao, pacotesDoGalpao } from "./src/ui/galpao.js";
 import { renderResolvidos, pacotesResolvidos } from "./src/ui/resolvidos.js";
+import { renderMotoristas, contarMotoristas } from "./src/ui/motoristas.js";
 import { mensagemCobranca } from "./src/charge.js";
 import { novaTratativa, adicionarNota, alternarTicket, separarCodigos, STATUS } from "./src/tratativa.js";
 import { buildEnrichment } from "./src/enrich.js";
@@ -46,6 +47,7 @@ const state = {
   tratativas: {},       // { pkgId: tratativa } — dado do usuário, nunca vem do Excel
   enrichment: {},       // { pkgId: dados da Gestão de Bases }
   contatos: {},         // { driver: { telefone } } — cadastrado uma vez, reutilizado
+  buscaMotorista: "",
   pacoteAberto: null,
 };
 
@@ -55,13 +57,13 @@ const el = {
   telas: {
     importar: $("screenImportar"), painel: $("screenPainel"),
     pacotes: $("screenPacotes"), cobranca: $("screenCobranca"), galpao: $("screenGalpao"),
-    resolvidos: $("screenResolvidos"),
+    resolvidos: $("screenResolvidos"), motoristas: $("screenMotoristas"),
   },
   stats: $("stats"), grupos: $("grupos"),
   listaPacotes: $("listaPacotes"), busca: $("buscaPacote"), filtroSituacao: $("filtroSituacao"),
   dropzone: $("dropzone"), dropzoneTitle: $("dropzoneTitle"), fileInput: $("fileInput"),
   importResult: $("importResult"), baseAtual: $("baseAtual"), baseAtualKv: $("baseAtualKv"),
-  cobranca: $("cobranca"), galpao: $("galpao"), resolvidos: $("resolvidos"),
+  cobranca: $("cobranca"), galpao: $("galpao"), resolvidos: $("resolvidos"), motoristas: $("motoristas"),
   drawerOverlay: $("drawerOverlay"), drawer: $("drawer"), drawerBody: $("drawerBody"),
   drawerTitulo: $("drawerTitulo"), drawerSituacao: $("drawerSituacao"),
   toast: $("toast"),
@@ -166,6 +168,7 @@ function renderTudo() {
     // os contadores mostram o que falta fazer, não o total histórico
     $("countCobranca").textContent = state.byDriver.reduce((s, m) => s + m.totalAbertos, 0);
     $("countGalpao").textContent = pacotesDoGalpao(state.packages).length;
+    $("countMotoristas").textContent = contarMotoristas(state.packages, state.byDriver, state.contatos);
   }
 
   renderPainel(el, state.packages);
@@ -173,6 +176,7 @@ function renderTudo() {
   renderCobranca(el.cobranca, state.byDriver, state.motorista, state.cobrancas, state.enrichment, state.contatos);
   renderGalpao(el.galpao, state.packages, state.tratativas);
   renderResolvidos(el.resolvidos, state.packages, state.tratativas);
+  renderMotoristas(el.motoristas, state.packages, state.byDriver, state.contatos, state.buscaMotorista);
   renderBaseAtual();
 }
 
@@ -607,29 +611,118 @@ el.cobranca.addEventListener("keydown", (e) => {
   }
 });
 
-/**
- * Guarda o telefone do motorista. Normaliza antes de salvar para o link do
- * WhatsApp sair sempre correto, independente de como o operador digitou.
- */
-async function salvarContato(m) {
-  if (!m) return;
-  const bruto = $("contatoTelefone")?.value ?? "";
-  const telefone = normalizarTelefone(bruto);
-
-  if (bruto.trim() && !telefoneValido(telefone)) {
-    $("chargeHint").textContent = "Número fora do padrão. Use DDD + número, ex.: (64) 99999-8888.";
+// ------------------------------------------------- tela de motoristas (banco)
+el.motoristas.addEventListener("click", async (e) => {
+  // salvar o telefone de um motorista da lista
+  const salvar = e.target.closest("[data-salvar]");
+  if (salvar) {
+    const driver = salvar.dataset.salvar;
+    const input = el.motoristas.querySelector(`[data-tel="${cssEscape(driver)}"]`);
+    const r = await gravarContato(driver, input?.value ?? "");
+    if (!r.ok) { toast(r.msg, "bad"); return; }
+    toast(r.msg, "good");
+    refazerMotoristas();
     return;
   }
 
-  if (!bruto.trim()) {
-    await repo.deleteContact(m.driver);
-    delete state.contatos[m.driver];
+  // remover o contato
+  const remover = e.target.closest("[data-remover]");
+  if (remover) {
+    await gravarContato(remover.dataset.remover, "");
     toast("Contato removido.", "good");
-  } else {
-    await repo.putContact({ driver: m.driver, telefone });
-    state.contatos[m.driver] = { driver: m.driver, telefone };
-    toast("WhatsApp salvo.", "good");
+    refazerMotoristas();
+    return;
   }
+
+  // cadastrar um motorista novo (nome + telefone), mesmo sem pacote ainda
+  if (e.target.closest("#btnAddMotorista")) {
+    const nome = $("novoMotoristaNome")?.value.trim().toUpperCase();
+    const tel = $("novoMotoristaTel")?.value ?? "";
+    if (!nome) { toast("Informe o nome do motorista.", "bad"); return; }
+    const r = await gravarContato(nome, tel);
+    if (!r.ok) { toast(r.msg, "bad"); return; }
+    toast(`Motorista ${nome} cadastrado.`, "good");
+    refazerMotoristas();
+    return;
+  }
+
+  // cobrança de um clique a partir do cadastro
+  const zap = e.target.closest("[data-zap]");
+  if (zap) {
+    const m = state.byDriver.find((x) => x.driver === zap.dataset.zap);
+    if (!m || !m.abertos.length) return;
+    const tel = state.contatos[m.driver]?.telefone;
+    if (!telefoneValido(tel)) { toast("Cadastre um WhatsApp válido primeiro.", "bad"); return; }
+    const msg = mensagemCobranca(m, state.enrichment);
+    if (!msg) return;
+    window.open(linkWhatsApp(tel, msg), "_blank", "noopener");
+    await registrarCobranca(m);
+    refazerMotoristas();
+    toast("WhatsApp aberto com a cobrança pronta.", "good");
+  }
+});
+
+// Enter salva na linha do motorista ou cadastra o novo
+el.motoristas.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  if (e.target.matches("[data-tel]")) {
+    e.preventDefault();
+    el.motoristas.querySelector(`[data-salvar="${cssEscape(e.target.dataset.tel)}"]`)?.click();
+  } else if (e.target.id === "novoMotoristaNome" || e.target.id === "novoMotoristaTel") {
+    e.preventDefault();
+    $("btnAddMotorista").click();
+  }
+});
+
+// busca: filtra os cartões já na tela, sem re-render (não perde o foco ao digitar)
+el.motoristas.addEventListener("input", (e) => {
+  if (e.target.id !== "buscaMotorista") return;
+  state.buscaMotorista = e.target.value;
+  const termo = e.target.value.trim().toLowerCase();
+  el.motoristas.querySelectorAll(".motorista").forEach((card) => {
+    card.hidden = termo && !card.dataset.motorista.toLowerCase().includes(termo);
+  });
+});
+
+function refazerMotoristas() {
+  renderMotoristas(el.motoristas, state.packages, state.byDriver, state.contatos, state.buscaMotorista);
+  $("countMotoristas").textContent = contarMotoristas(state.packages, state.byDriver, state.contatos);
+}
+
+/** Escapa um valor para uso seguro em seletor de atributo. */
+function cssEscape(v) {
+  return String(v).replace(/["\\]/g, "\\$&");
+}
+
+/**
+ * Núcleo de gravação do contato — normaliza, valida, persiste no repositório
+ * (local ou nuvem) e atualiza o estado. Usado pela cobrança e pela tela de
+ * motoristas. Devolve { ok, msg } para quem chamou decidir o feedback.
+ */
+async function gravarContato(driver, bruto) {
+  if (!driver) return { ok: false };
+  const texto = String(bruto ?? "").trim();
+  const telefone = normalizarTelefone(texto);
+
+  if (texto && !telefoneValido(telefone)) {
+    return { ok: false, msg: "Número fora do padrão. Use DDD + número, ex.: (64) 99999-8888." };
+  }
+  if (!texto) {
+    await repo.deleteContact(driver);
+    delete state.contatos[driver];
+    return { ok: true, msg: "Contato removido." };
+  }
+  await repo.putContact({ driver, telefone });
+  state.contatos[driver] = { driver, telefone };
+  return { ok: true, msg: "WhatsApp salvo." };
+}
+
+/** Salva o contato na barra da tela de cobrança. */
+async function salvarContato(m) {
+  if (!m) return;
+  const r = await gravarContato(m.driver, $("contatoTelefone")?.value ?? "");
+  if (!r.ok) { $("chargeHint").textContent = r.msg; return; }
+  toast(r.msg, "good");
   renderCobranca(el.cobranca, state.byDriver, state.motorista, state.cobrancas, state.enrichment, state.contatos);
 }
 

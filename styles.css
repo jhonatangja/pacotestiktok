@@ -554,6 +554,45 @@ p { margin: 0; }
 .charge__text:focus { outline: 0; border-color: var(--navy); box-shadow: 0 0 0 3px var(--navy-100); }
 .hint { font-size: 12.5px; color: var(--ink-3); }
 
+/* ------------------------------------------------------------ motoristas */
+.motorista-novo {
+  padding: 14px 16px; margin-bottom: 18px; border-radius: var(--radius);
+  background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow);
+}
+.motorista-novo__label {
+  display: block; margin-bottom: 9px;
+  font-size: 11px; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--ink-3);
+}
+.motorista-novo__row { display: flex; gap: 8px; flex-wrap: wrap; }
+.motorista-novo__row .input:first-of-type { flex: 2 1 200px; }
+.motorista-novo__row .input:nth-of-type(2) { flex: 1 1 160px; }
+
+.motorista {
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 15px; border-radius: var(--radius);
+  background: var(--surface); border: 1px solid var(--line);
+  border-left: 3px solid var(--tone, var(--transito));
+  box-shadow: var(--shadow);
+  transition: box-shadow .2s var(--ease);
+}
+.motorista:hover { box-shadow: var(--shadow-lift); }
+.motorista__head { display: flex; align-items: center; gap: 11px; }
+.motorista__head .avatar {
+  display: grid; place-items: center; flex: none;
+  width: 38px; height: 38px; border-radius: 50%;
+  font-size: 13px; font-weight: 700; color: var(--navy); background: var(--navy-100);
+}
+.motorista__id { min-width: 0; }
+.motorista__name {
+  font-size: 14.5px; font-weight: 650;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.motorista__meta { font-size: 12.5px; color: var(--ink-2); }
+.motorista__contact { display: flex; gap: 7px; }
+.motorista__contact .input { flex: 1; min-width: 0; font-size: 13.5px; }
+.motorista__actions { display: flex; gap: 7px; flex-wrap: wrap; }
+
 /* --------------------------------------------------------------- vazio */
 .empty {
   display: flex; flex-direction: column; align-items: center; gap: 10px;
