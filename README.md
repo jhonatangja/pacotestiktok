@@ -58,6 +58,17 @@ Um pacote com ticket:
 
 Marcar a tratativa como **resolvida** encerra o ticket automaticamente.
 
+## Dois modos
+
+- **Local (padrão)** — roda 100% no navegador, os dados ficam só na máquina. Zero configuração.
+- **Nuvem (tempo real)** — base compartilhada entre 2–5 operadores, atrás de login, com a tela
+  atualizando sozinha quando alguém mexe em algo. Liga preenchendo `src/supabase-config.js` —
+  passo a passo em **[SETUP-SUPABASE.md](SETUP-SUPABASE.md)**.
+
+A troca não muda a interface: `src/repo.js` é a única camada de dados, e o modo nuvem
+(`src/repo-supabase.js`) implementa a mesma interface. Se a nuvem cair, o sistema volta sozinho
+para a base local da máquina.
+
 ## Como rodar
 
 **Duplo clique em `abrir.bat`.** Ele sobe um servidor local e abre o navegador.
@@ -136,7 +147,9 @@ src/
   charge.js      mensagens de cobrança
   enrich.js      cruzamento com a Gestão de Bases
   export.js      códigos para reconsultar e relatório CSV
-  repo.js        ÚNICA camada de persistência (IndexedDB hoje, API amanhã)
+  repo.js        camada de persistência local (IndexedDB) — o padrão
+  repo-supabase.js  mesma interface, mas em nuvem e tempo real (opcional)
+  supabase-config.js  o interruptor local ↔ nuvem
   ui/            telas
 vendor/          SheetJS
 tools/validate.js

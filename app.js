@@ -22,9 +22,15 @@ import { codigosParaReconsultar, relatorioCsv, baixar, nomeDoArquivo } from "./s
 import { cardPacote, listaVazia } from "./src/ui/cards.js";
 import { escapeHtml, dataHoraLonga } from "./src/ui/format.js";
 import { normalizarTelefone, telefoneValido, linkWhatsApp } from "./src/contatos.js";
+import { usarSupabase } from "./src/supabase-config.js";
+import { getSupabaseClient, createSupabaseRepo } from "./src/repo-supabase.js";
 
 const $ = (id) => document.getElementById(id);
-const repo = createRepo();
+
+// Repositório escolhido no boot: IndexedDB local por padrão, Supabase se
+// configurado. É `let` porque o boot pode trocá-lo antes de qualquer uso.
+let repo = createRepo();
+let sbClient = null;   // cliente Supabase, quando no modo nuvem
 
 const state = {
   raw: [],        // eventos crus vindos do repositório
@@ -675,7 +681,87 @@ el.busca.addEventListener("input", (e) => { state.busca = e.target.value; render
 el.filtroSituacao.addEventListener("change", (e) => { state.filtroSituacao = e.target.value; renderListaPacotes(); });
 
 // ---------------------------------------------------------------------------
+// MODO NUVEM (Supabase) — login e tempo real
+// ---------------------------------------------------------------------------
+
+/** Garante uma sessão logada antes de liberar o app. Mostra o login se preciso. */
+async function garantirLogin(client) {
+  const { data: { session } } = await client.auth.getSession();
+  if (session) return session;
+
+  return new Promise((resolve) => {
+    const overlay = $("loginOverlay");
+    overlay.hidden = false;
+    $("loginEmail").focus();
+
+    $("loginForm").onsubmit = async (e) => {
+      e.preventDefault();
+      const erro = $("loginErro");
+      const btn = $("btnLogin");
+      erro.textContent = "";
+      btn.disabled = true;
+      btn.textContent = "Entrando…";
+      const { data, error } = await client.auth.signInWithPassword({
+        email: $("loginEmail").value.trim(),
+        password: $("loginSenha").value,
+      });
+      btn.disabled = false;
+      btn.textContent = "Entrar";
+      if (error) {
+        erro.textContent = "E-mail ou senha incorretos.";
+        return;
+      }
+      overlay.hidden = true;
+      resolve(data.session);
+    };
+  });
+}
+
+// Recarrega a tela quando outro operador altera a base — mas espera o usuário
+// parar de digitar, para não apagar um campo no meio do preenchimento.
+let realtimeTimer = null;
+function agendarReloadTempoReal() {
+  clearTimeout(realtimeTimer);
+  realtimeTimer = setTimeout(async () => {
+    const tag = document.activeElement?.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA") return agendarReloadTempoReal();
+    await recarregar();
+    toast("Base atualizada em tempo real.", "");
+  }, 800);
+}
+
+function mostrarBarraNuvem(session) {
+  const barra = $("cloudStatus");
+  if (!barra) return;
+  barra.hidden = false;
+  $("cloudEmail").textContent = session?.user?.email ?? "conectado";
+}
+
+$("btnLogout")?.addEventListener("click", async () => {
+  if (!sbClient) return;
+  await sbClient.auth.signOut();
+  location.reload();
+});
+
+// ---------------------------------------------------------------------------
 // INIT
 // ---------------------------------------------------------------------------
-await recarregar();
-irPara(state.packages.length ? "painel" : "importar");
+async function boot() {
+  if (usarSupabase()) {
+    try {
+      sbClient = await getSupabaseClient();
+      const session = await garantirLogin(sbClient);
+      repo = createSupabaseRepo(sbClient);
+      repo.subscribe(() => agendarReloadTempoReal());
+      mostrarBarraNuvem(session);
+    } catch (err) {
+      console.error(err);
+      toast("Não foi possível conectar à nuvem. Usando a base local desta máquina.", "bad");
+      repo = createRepo();   // fallback: não trava o operador se a nuvem cair
+    }
+  }
+  await recarregar();
+  irPara(state.packages.length ? "painel" : "importar");
+}
+
+boot();

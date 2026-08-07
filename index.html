@@ -28,6 +28,11 @@
   </div>
 
   <div class="topbar__actions">
+    <span class="cloud-status" id="cloudStatus" hidden>
+      <span class="cloud-status__dot"></span>
+      <span class="cloud-status__label">Tempo real · <b id="cloudEmail">—</b></span>
+      <button class="btn btn--ghost btn--sm" id="btnLogout">Sair</button>
+    </span>
     <button class="btn btn--ghost" id="btnIrImportar">Importar planilha</button>
   </div>
 </header>
@@ -161,6 +166,25 @@
     </header>
     <div class="drawer__body" id="drawerBody"></div>
   </aside>
+</div>
+
+<!-- ======================= LOGIN (só no modo nuvem) ======================= -->
+<div class="login-overlay" id="loginOverlay" hidden>
+  <form class="login-card" id="loginForm">
+    <span class="mark login-card__mark">📦</span>
+    <h2>Controle de Pacotes</h2>
+    <p class="login-card__sub">Entre com sua conta da operação para acessar a base em tempo real.</p>
+    <label class="login-field">
+      <span>E-mail</span>
+      <input class="input" id="loginEmail" type="email" autocomplete="username" required />
+    </label>
+    <label class="login-field">
+      <span>Senha</span>
+      <input class="input" id="loginSenha" type="password" autocomplete="current-password" required />
+    </label>
+    <span class="login-erro" id="loginErro" role="alert"></span>
+    <button class="btn btn--primary btn--lg" id="btnLogin" type="submit">Entrar</button>
+  </form>
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
