@@ -60,13 +60,26 @@ alter publication supabase_realtime add table
 
 Deve aparecer "Success. No rows returned".
 
-## 3. Criar as contas dos operadores
+## 3. Criar o login (usuário + senha, sem e-mail de verdade)
 
-1. Menu lateral → **Authentication → Providers → Email**: deixe **habilitado** e
-   **desligue** a opção *Allow new users to sign up* (assim só você cria contas — ninguém
-   se cadastra sozinho pela internet).
-2. **Authentication → Users → Add user → Create new user**. Para cada pessoa da base
-   (2 a 5), informe e-mail e senha e marque **Auto Confirm User**. Repita para cada operador.
+O login do sistema é por **usuário e senha** — ninguém precisa de e-mail real nem de
+confirmar nada. Por baixo, o sistema completa o usuário com um domínio interno
+(`base` vira `base@pacotes.local`), então no Supabase você cria a conta usando esse formato.
+
+1. Menu lateral → **Authentication → Providers → Email**: deixe **habilitado**, **desligue**
+   *Allow new users to sign up* e **desligue** *Confirm email* (assim a conta funciona na hora,
+   sem e-mail de confirmação).
+2. **Authentication → Users → Add user → Create new user**:
+   - **Email**: `base@pacotes.local` (o usuário será `base` — a parte antes do `@`)
+   - **Password**: a senha que a equipe vai usar
+   - marque **Auto Confirm User** → **Create user**
+
+   Isso cria **um login compartilhado** para a base inteira. Se quiser logins separados por
+   pessoa, repita criando `joao@pacotes.local`, `maria@pacotes.local`, etc. — cada um entra
+   digitando só o nome antes do `@` e a senha.
+
+> O domínio `pacotes.local` é interno e configurável em `src/supabase-config.js`
+> (campo `dominioLogin`). O operador nunca vê nem digita isso — só o usuário e a senha.
 
 ## 4. Pegar as credenciais e ligar o modo nuvem
 
@@ -91,7 +104,8 @@ Pronto. Ao abrir o site, ele agora pede login e a base é compartilhada em tempo
 
 ## O que muda
 
-- **Login**: cada operador entra com o e-mail/senha que você criou no passo 3.
+- **Login**: cada operador entra com o **usuário e senha** que você criou no passo 3
+  (o usuário é a parte antes do `@` — ex.: `base`).
 - **Tempo real**: quando alguém importa uma planilha, marca um ticket ou trata um pacote,
   a tela dos outros atualiza sozinha em segundos.
 - **A base local antiga não vem junto**: a primeira vez que abrir no modo nuvem, importe a

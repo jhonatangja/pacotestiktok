@@ -23,7 +23,7 @@ import { codigosParaReconsultar, relatorioCsv, baixar, nomeDoArquivo } from "./s
 import { cardPacote, listaVazia } from "./src/ui/cards.js";
 import { escapeHtml, dataHoraLonga } from "./src/ui/format.js";
 import { normalizarTelefone, telefoneValido, linkWhatsApp } from "./src/contatos.js";
-import { usarSupabase } from "./src/supabase-config.js";
+import { usarSupabase, usuarioParaEmail, emailParaUsuario } from "./src/supabase-config.js";
 import { getSupabaseClient, createSupabaseRepo } from "./src/repo-supabase.js";
 
 const $ = (id) => document.getElementById(id);
@@ -785,7 +785,7 @@ async function garantirLogin(client) {
   return new Promise((resolve) => {
     const overlay = $("loginOverlay");
     overlay.hidden = false;
-    $("loginEmail").focus();
+    $("loginUsuario").focus();
 
     $("loginForm").onsubmit = async (e) => {
       e.preventDefault();
@@ -794,14 +794,15 @@ async function garantirLogin(client) {
       erro.textContent = "";
       btn.disabled = true;
       btn.textContent = "Entrando…";
+      // o operador digita só o usuário; o e-mail interno é montado aqui
       const { data, error } = await client.auth.signInWithPassword({
-        email: $("loginEmail").value.trim(),
+        email: usuarioParaEmail($("loginUsuario").value),
         password: $("loginSenha").value,
       });
       btn.disabled = false;
       btn.textContent = "Entrar";
       if (error) {
-        erro.textContent = "E-mail ou senha incorretos.";
+        erro.textContent = "Usuário ou senha incorretos.";
         return;
       }
       overlay.hidden = true;
@@ -827,7 +828,7 @@ function mostrarBarraNuvem(session) {
   const barra = $("cloudStatus");
   if (!barra) return;
   barra.hidden = false;
-  $("cloudEmail").textContent = session?.user?.email ?? "conectado";
+  $("cloudEmail").textContent = emailParaUsuario(session?.user?.email) || "conectado";
 }
 
 $("btnLogout")?.addEventListener("click", async () => {

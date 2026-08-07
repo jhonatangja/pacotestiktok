@@ -15,9 +15,30 @@
 export const SUPABASE = {
   url: "",       // ex.: https://abcdxyz.supabase.co
   anonKey: "",   // a chave "anon public" (começa com eyJ...)
+
+  // O Supabase exige e-mail no login, mas o operador só digita um usuário
+  // simples (ex.: "base"). O sistema completa com este domínio interno por
+  // baixo dos panos — ninguém precisa de e-mail de verdade nem confirmar nada.
+  dominioLogin: "pacotes.local",
 };
 
 /** Com os dois campos preenchidos, o app entra no modo nuvem. */
 export function usarSupabase() {
   return Boolean(SUPABASE.url && SUPABASE.anonKey);
+}
+
+/**
+ * "base" → "base@pacotes.local". Se o operador já digitar um e-mail completo,
+ * respeita. É o que permite o login por usuário + senha, sem e-mail real.
+ */
+export function usuarioParaEmail(usuario) {
+  const u = String(usuario ?? "").trim().toLowerCase();
+  if (!u) return "";
+  return u.includes("@") ? u : `${u}@${SUPABASE.dominioLogin}`;
+}
+
+/** Caminho inverso, só para exibir o usuário sem o domínio interno. */
+export function emailParaUsuario(email) {
+  const e = String(email ?? "");
+  return e.endsWith(`@${SUPABASE.dominioLogin}`) ? e.slice(0, -(`@${SUPABASE.dominioLogin}`).length) : e;
 }
