@@ -16,8 +16,10 @@ import { renderCobranca } from "./src/ui/cobranca.js";
 import { renderGalpao, pacotesDoGalpao } from "./src/ui/galpao.js";
 import { renderResolvidos, pacotesResolvidos } from "./src/ui/resolvidos.js";
 import { renderMotoristas, contarMotoristas } from "./src/ui/motoristas.js";
-import { mensagemCobranca } from "./src/charge.js";
-import { novaTratativa, adicionarNota, alternarTicket, separarCodigos, STATUS } from "./src/tratativa.js";
+import { renderFechamento, noCircuito, mensagemFechamento } from "./src/ui/fechamento.js";
+import { ACAO, definirAutor, novaAtividade, cobradoHoje } from "./src/atividades.js";
+import { mensagemCobranca, mensagemFechamentoMotorista } from "./src/charge.js";
+import { novaTratativa, adicionarNota, alternarTicket, separarCodigos, STATUS, DESFECHO_META } from "./src/tratativa.js";
 import { buildEnrichment } from "./src/enrich.js";
 import { codigosParaReconsultar, relatorioCsv, baixar, nomeDoArquivo } from "./src/export.js";
 import { cardPacote, listaVazia } from "./src/ui/cards.js";
@@ -47,6 +49,7 @@ const state = {
   tratativas: {},       // { pkgId: tratativa } — dado do usuário, nunca vem do Excel
   enrichment: {},       // { pkgId: dados da Gestão de Bases }
   contatos: {},         // { driver: { telefone } } — cadastrado uma vez, reutilizado
+  atividades: [],       // log append-only de quem fez o quê
   buscaMotorista: "",
   pacoteAberto: null,
 };
@@ -58,12 +61,14 @@ const el = {
     importar: $("screenImportar"), painel: $("screenPainel"),
     pacotes: $("screenPacotes"), cobranca: $("screenCobranca"), galpao: $("screenGalpao"),
     resolvidos: $("screenResolvidos"), motoristas: $("screenMotoristas"),
+    fechamento: $("screenFechamento"),
   },
   stats: $("stats"), grupos: $("grupos"),
   listaPacotes: $("listaPacotes"), busca: $("buscaPacote"), filtroSituacao: $("filtroSituacao"),
   dropzone: $("dropzone"), dropzoneTitle: $("dropzoneTitle"), fileInput: $("fileInput"),
   importResult: $("importResult"), baseAtual: $("baseAtual"), baseAtualKv: $("baseAtualKv"),
-  cobranca: $("cobranca"), galpao: $("galpao"), resolvidos: $("resolvidos"), motoristas: $("motoristas"),
+  cobranca: $("cobranca"), galpao: $("galpao"), resolvidos: $("resolvidos"),
+  motoristas: $("motoristas"), fechamento: $("fechamento"),
   drawerOverlay: $("drawerOverlay"), drawer: $("drawer"), drawerBody: $("drawerBody"),
   drawerTitulo: $("drawerTitulo"), drawerSituacao: $("drawerSituacao"),
   toast: $("toast"),
@@ -90,10 +95,22 @@ async function recarregar() {
   state.tratativas = Object.fromEntries((await repo.getTreatments()).map((t) => [t.pkgId, t]));
   state.enrichment = Object.fromEntries((await repo.getEnrichment()).map((e) => [e.pkgId, e]));
   state.contatos = Object.fromEntries((await repo.getContacts()).map((c) => [c.driver, c]));
+  state.atividades = await repo.getActivities();
   // as tratativas entram no motor porque o ticket do cliente reordena a fila
   const r = buildPackages(state.events, { sla: SLA_PADRAO, tratativas: state.tratativas });
   Object.assign(state, { packages: r.packages, byDriver: r.byDriver, resumo: r.resumo });
   renderTudo();
+}
+
+/**
+ * Registra uma ação da equipe no pacote. Append-only: nunca sobrescreve nada,
+ * então dois operadores agindo ao mesmo tempo não apagam o registro um do outro.
+ */
+async function registrar(pkgId, tipo, detalhe = "") {
+  const a = novaAtividade(pkgId, tipo, detalhe);
+  await repo.putActivity(a);
+  state.atividades = [...state.atividades, a];
+  return a;
 }
 
 async function importar(file) {
@@ -169,6 +186,9 @@ function renderTudo() {
     $("countCobranca").textContent = state.byDriver.reduce((s, m) => s + m.totalAbertos, 0);
     $("countGalpao").textContent = pacotesDoGalpao(state.packages).length;
     $("countMotoristas").textContent = contarMotoristas(state.packages, state.byDriver, state.contatos);
+    // o contador do fechamento mostra o que falta cobrar hoje, não o total
+    $("countFechamento").textContent = noCircuito(state.packages)
+      .filter((p) => !cobradoHoje(state.atividades, p.pkgId)).length;
   }
 
   renderPainel(el, state.packages);
@@ -177,6 +197,7 @@ function renderTudo() {
   renderGalpao(el.galpao, state.packages, state.tratativas);
   renderResolvidos(el.resolvidos, state.packages, state.tratativas);
   renderMotoristas(el.motoristas, state.packages, state.byDriver, state.contatos, state.buscaMotorista);
+  renderFechamento(el.fechamento, state.packages, state.byDriver, state.contatos, state.atividades);
   renderBaseAtual();
 }
 
@@ -236,8 +257,14 @@ function abrirPacote(pkgId) {
 function desenharDrawer(p) {
   renderPacote(
     { drawer: el.drawer, body: el.drawerBody, titulo: el.drawerTitulo, situacao: el.drawerSituacao },
-    p, state.tratativas[p.pkgId], state.enrichment[p.pkgId]
+    p, state.tratativas[p.pkgId], state.enrichment[p.pkgId], state.atividades
   );
+}
+
+/** Redesenha o drawer do pacote que está aberto, se houver. */
+function desenharDrawerAtual() {
+  const p = state.packages.find((x) => x.pkgId === state.pacoteAberto);
+  if (p) desenharDrawer(p);
 }
 
 function fecharPacote() {
@@ -281,6 +308,8 @@ el.drawerBody.addEventListener("click", async (e) => {
     const base = state.tratativas[pkgId] ?? novaTratativa(pkgId);
     const t = alternarTicket(base, $("ticketRef")?.value ?? "");
     await repo.putTreatment(t);
+    await registrar(pkgId, t.ticket?.aberto ? ACAO.TICKET_ABERTO : ACAO.TICKET_REMOVIDO,
+                    t.ticket?.ref ? `ticket ${t.ticket.ref}` : "");
     await recarregar();
     const p = state.packages.find((x) => x.pkgId === pkgId);
     if (p) desenharDrawer(p);
@@ -296,29 +325,51 @@ el.drawerBody.addEventListener("click", async (e) => {
   if (opt) {
     const status = opt.dataset.status;
     const base = state.tratativas[pkgId] ?? novaTratativa(pkgId);
+    const estavaResolvido = base.status === STATUS.RESOLVIDA;
     await repo.putTreatment({
       ...base,
       status,
+      desfecho: null,          // voltar a abrir descarta o desfecho anterior
       responsavel: $("tratResponsavel")?.value ?? base.responsavel,
       prazo: $("tratPrazo")?.value || null,
     });
+    await registrar(pkgId, estavaResolvido ? ACAO.REABERTO : ACAO.STATUS, opt.textContent.trim());
     await recarregar();
 
-    if (status === STATUS.RESOLVIDA) {
-      fecharPacote();
-      toast("Caso encerrado — foi para a aba Resolvidos.", "good");
-    } else {
-      const p = state.packages.find((x) => x.pkgId === pkgId);
-      if (p) desenharDrawer(p);
-      toast(`Tratativa marcada como "${opt.textContent.trim()}".`, "good");
-    }
+    const p = state.packages.find((x) => x.pkgId === pkgId);
+    if (p) desenharDrawer(p);
+    toast(estavaResolvido
+      ? "Caso reaberto — voltou para as pendências."
+      : `Tratativa marcada como "${opt.textContent.trim()}".`, "good");
+    return;
+  }
+
+  // finalizar: entregue ou devolvido — encerra e manda para Resolvidos
+  const fim = e.target.closest("[data-desfecho]");
+  if (fim) {
+    const desfecho = fim.dataset.desfecho;
+    const base = state.tratativas[pkgId] ?? novaTratativa(pkgId);
+    await repo.putTreatment({
+      ...base,
+      status: STATUS.RESOLVIDA,
+      desfecho,
+      responsavel: $("tratResponsavel")?.value ?? base.responsavel,
+      prazo: $("tratPrazo")?.value || null,
+    });
+    await registrar(pkgId, ACAO.FINALIZADO, DESFECHO_META[desfecho]?.label ?? desfecho);
+    await recarregar();
+    fecharPacote();
+    toast(`Pacote finalizado como "${DESFECHO_META[desfecho]?.label ?? desfecho}" — foi para Resolvidos.`, "good");
     return;
   }
 
   if (e.target.closest("#btnAddNota")) {
     const campo = $("tratNota");
     if (!campo?.value.trim()) return;
-    await salvarTratativa(pkgId, { nota: campo.value });
+    const texto = campo.value.trim();
+    await salvarTratativa(pkgId, { nota: texto });
+    await registrar(pkgId, ACAO.NOTA, texto);
+    desenharDrawerAtual();
     toast("Registro adicionado.", "good");
   }
 });
@@ -327,7 +378,12 @@ el.drawerBody.addEventListener("click", async (e) => {
 el.drawerBody.addEventListener("change", async (e) => {
   if (!state.pacoteAberto) return;
   if (e.target.id === "tratResponsavel" || e.target.id === "tratPrazo") {
+    const valor = e.target.value.trim();
     await salvarTratativa(state.pacoteAberto, {}, false);
+    if (valor) {
+      await registrar(state.pacoteAberto,
+        e.target.id === "tratResponsavel" ? ACAO.RESPONSAVEL : ACAO.PRAZO, valor);
+    }
     toast("Tratativa salva.", "good");
     return;
   }
@@ -684,6 +740,48 @@ el.motoristas.addEventListener("input", (e) => {
   });
 });
 
+// ------------------------------------------------------ fechamento do dia
+el.fechamento.addEventListener("click", async (e) => {
+  // cobrança de fechamento por motorista: exige atualizar no JMS
+  const zap = e.target.closest("[data-fech-zap]");
+  if (zap) {
+    const nome = zap.dataset.fechZap;
+    const m = state.byDriver.find((x) => x.driver === nome);
+    const tel = state.contatos[nome]?.telefone;
+    if (!m || !telefoneValido(tel)) { toast("Cadastre um WhatsApp válido na aba Motoristas.", "bad"); return; }
+
+    const pacotes = noCircuito(state.packages).filter((p) => p.motoristaAtual === nome);
+    const msg = mensagemFechamentoMotorista(m, state.enrichment, pacotes);
+    if (!msg) return;
+
+    window.open(linkWhatsApp(tel, msg), "_blank", "noopener");
+    await registrarCobranca(m, pacotes);
+    renderTudo();
+    irPara("fechamento");
+    toast(`Cobrança de fechamento enviada para ${nome}.`, "good");
+    return;
+  }
+
+  if (e.target.closest("#btnResumoFechamento")) {
+    const msg = mensagemFechamento(state.packages, state.atividades);
+    const ta = $("resumoFechamento");
+    if (!msg) { $("fechamentoHint").textContent = "Nada no circuito — nenhum resumo a gerar."; return; }
+    ta.value = msg;
+    ta.hidden = false;
+    $("btnCopiarResumo").disabled = false;
+    $("fechamentoHint").textContent = `${noCircuito(state.packages).length} pacotes no circuito.`;
+    return;
+  }
+
+  if (e.target.closest("#btnCopiarResumo")) {
+    const ta = $("resumoFechamento");
+    if (!ta?.value) return;
+    try { await navigator.clipboard.writeText(ta.value); }
+    catch { ta.select(); document.execCommand("copy"); }
+    toast("Resumo copiado — cole no grupo da operação.", "good");
+  }
+});
+
 function refazerMotoristas() {
   renderMotoristas(el.motoristas, state.packages, state.byDriver, state.contatos, state.buscaMotorista);
   $("countMotoristas").textContent = contarMotoristas(state.packages, state.byDriver, state.contatos);
@@ -745,10 +843,15 @@ async function copiar(texto) {
  * Marca os pacotes deste motorista como cobrados agora. É isso que evita
  * cobrar duas vezes a mesma coisa — e que mostra quem ficou sem cobrança.
  */
-async function registrarCobranca(m) {
+async function registrarCobranca(m, pacotes = null) {
   if (!m) return;
   const em = new Date().toISOString();
-  for (const d of m.abertos) state.cobrancas[d.pacote.pkgId] = { em, motorista: m.driver };
+  const lista = pacotes ?? m.abertos.map((d) => d.pacote);
+  for (const p of lista) {
+    state.cobrancas[p.pkgId] = { em, motorista: m.driver };
+    // além do carimbo, entra no log com autor — é o que permite auditar depois
+    await registrar(p.pkgId, ACAO.COBRANCA, m.driver);
+  }
   await repo.setMeta("cobrancas", state.cobrancas);
 
   // o re-render recria o textarea; a mensagem recém-copiada continua na tela
@@ -848,6 +951,8 @@ async function boot() {
       repo = createSupabaseRepo(sbClient);
       repo.subscribe(() => agendarReloadTempoReal());
       mostrarBarraNuvem(session);
+      // a partir daqui toda ação registrada leva o nome de quem está logado
+      definirAutor(emailParaUsuario(session?.user?.email));
     } catch (err) {
       console.error(err);
       toast("Não foi possível conectar à nuvem. Usando a base local desta máquina.", "bad");

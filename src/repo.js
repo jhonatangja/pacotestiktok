@@ -13,13 +13,14 @@
 // ---------------------------------------------------------------------------
 
 const DB_NAME = "gestao_pacotes_tiktok";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 const STORE = {
   events: "events",           // eventos do JMS — append-only, chave = conteúdo
   treatments: "treatments",   // tratativas do galpão — dado do usuário
   enrichment: "enrichment",   // dados da Gestão de Bases (destinatário/endereço)
   contacts: "contacts",       // telefone do motorista — cadastrado uma vez, chave = nome
+  activities: "activities",   // quem fez o quê e quando — append-only, nunca editado
   meta: "meta",               // configurações e log de importações
 };
 
@@ -41,6 +42,11 @@ function abrirDb() {
       }
       if (!db.objectStoreNames.contains(STORE.contacts)) {
         db.createObjectStore(STORE.contacts, { keyPath: "driver" });
+      }
+      if (!db.objectStoreNames.contains(STORE.activities)) {
+        const s = db.createObjectStore(STORE.activities, { keyPath: "id" });
+        s.createIndex("pkgId", "pkgId", { unique: false });
+        s.createIndex("em", "em", { unique: false });
       }
       if (!db.objectStoreNames.contains(STORE.meta)) {
         db.createObjectStore(STORE.meta, { keyPath: "key" });
@@ -137,6 +143,14 @@ export function createIndexedDbRepo() {
       await doneOf(tx);
     },
 
+    // -- atividades (append-only: registrar nunca sobrescreve) --------------
+    getActivities: () => readAll(STORE.activities),
+
+    async putActivity(a) {
+      await writeAll(STORE.activities, [a]);
+      return a.id;
+    },
+
     // -- meta ---------------------------------------------------------------
     async getMeta(key, fallback = null) {
       const tx = (await db()).transaction(STORE.meta, "readonly");
@@ -167,6 +181,7 @@ export function createMemoryRepo(seed = {}) {
     treatments: new Map((seed.treatments ?? []).map((t) => [t.pkgId, t])),
     enrichment: new Map((seed.enrichment ?? []).map((e) => [e.pkgId, e])),
     contacts: new Map((seed.contacts ?? []).map((c) => [c.driver, c])),
+    activities: new Map((seed.activities ?? []).map((a) => [a.id, a])),
     meta: new Map(Object.entries(seed.meta ?? {})),
   };
 
@@ -193,6 +208,9 @@ export function createMemoryRepo(seed = {}) {
       return c.driver;
     },
     deleteContact: async (driver) => { stores.contacts.delete(driver); },
+
+    getActivities: async () => [...stores.activities.values()],
+    putActivity: async (a) => { stores.activities.set(a.id, a); return a.id; },
 
     getMeta: async (key, fallback = null) => (stores.meta.has(key) ? stores.meta.get(key) : fallback),
     setMeta: async (key, value) => { stores.meta.set(key, value); },

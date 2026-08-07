@@ -143,7 +143,12 @@ export const SLA_PADRAO = {
 
 export const PREFIXO_MOTORISTA_PADRAO = "F RVD -";
 
+// A base que esta operação responde. Serve para reconhecer quando um pacote
+// foi recebido POR OUTRA base — momento em que ele sai da sua responsabilidade.
+export const BASE_OPERACAO = "F RVD - GO";
+
 export const SITUACAO = {
+  RECEBIDO_OUTRA_BASE:     "RECEBIDO_OUTRA_BASE",
   RETORNADO_GALPAO:        "RETORNADO_GALPAO",
   COM_MOTORISTA_ESTOURADO: "COM_MOTORISTA_ESTOURADO",
   COM_MOTORISTA_NO_PRAZO:  "COM_MOTORISTA_NO_PRAZO",
@@ -157,6 +162,8 @@ export const SITUACAO = {
 // pendência viva, mesmo tendo saído há pouco. Por isso "no prazo" também cai
 // em "Cobrar motorista" — o prazo muda a cor, não a necessidade de cobrar.
 export const SITUACAO_META = {
+  // Terminal: outra base assumiu o pacote, então ele saiu do seu circuito.
+  [SITUACAO.RECEBIDO_OUTRA_BASE]:     { label: "Recebido em outra base",   acao: "Encerrado",         peso: 0 },
   [SITUACAO.RETORNADO_GALPAO]:        { label: "Retornou ao galpão",       acao: "Tratar no galpão",  peso: 100 },
   [SITUACAO.COM_MOTORISTA_ESTOURADO]: { label: "Com motorista (atrasado)", acao: "Cobrar motorista",  peso: 90 },
   [SITUACAO.OCORRENCIA_EM_ABERTO]:    { label: "Ocorrência sem desfecho",  acao: "Definir destino",   peso: 80 },

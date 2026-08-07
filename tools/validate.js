@@ -19,6 +19,8 @@ import { separarCodigos } from "../src/tratativa.js";
 import { normalizarTelefone, telefoneValido, linkWhatsApp } from "../src/contatos.js";
 import { pacotesDoGalpao } from "../src/ui/galpao.js";
 import { pacotesResolvidos } from "../src/ui/resolvidos.js";
+import { noCircuito } from "../src/ui/fechamento.js";
+import { ACAO, definirAutor, novaAtividade, cobradoHoje } from "../src/atividades.js";
 import { FLAG, SITUACAO } from "../src/config.js";
 
 const require = createRequire(import.meta.url);
@@ -196,6 +198,36 @@ check("telefone com máscara vira dígitos+55", normalizarTelefone("(64) 99999-8
 check("telefone sem DDD é inválido", telefoneValido("99999-8888"), false);
 check("link do WhatsApp embute a mensagem",
   linkWhatsApp("64999998888", "oi").startsWith("https://wa.me/5564999998888?text="), true);
+
+// recebido em outra base: encerra sozinho, sem decisão humana
+const alvoOutraBase = "999881582349743";
+const comOutraBase = buildPackages(
+  [...limpos, {
+    id: "sintetico|outra-base", pkgId: alvoOutraBase,
+    ts: agora + 3600000, tsISO: "sintetico",
+    rawType: "bipe de recebimento", fact: "RECEBIDO_BASE", stage: "BASE_FINAL",
+    label: "Recebido na base final", base: "GO ITU - GO",
+  }],
+  { now: agora + 7200000 }
+).packages.find((p) => p.pkgId === alvoOutraBase);
+
+check("outra base encerra o pacote", comOutraBase.resolvido, true);
+check("outra base vira situação própria", comOutraBase.situacao, SITUACAO.RECEBIDO_OUTRA_BASE);
+check("outra base é identificada", comOutraBase.outraBase, "GO ITU - GO");
+check("outra base sai do circuito", noCircuito([comOutraBase]).length, 0);
+check("recebimento na própria base não confunde",
+  packages.find((p) => p.pkgId === alvoOutraBase).resolvido, false);
+
+// registro de ações: autor, hora e cobrança do dia
+definirAutor("samuel");
+const ato = novaAtividade("999881527748083", ACAO.COBRANCA, "DORAILDO");
+check("atividade grava o autor", ato.autor, "samuel");
+check("atividade identifica o pacote certo", cobradoHoje([ato], "999881527748083"), true);
+check("atividade não vaza para outro pacote", cobradoHoje([ato], "999881544281038"), false);
+// dois operadores no mesmo instante geram registros distintos
+definirAutor("jessica");
+const ato2 = novaAtividade("999881527748083", ACAO.COBRANCA, "DORAILDO");
+check("dois autores não se sobrescrevem", ato.id === ato2.id, false);
 
 // lançamento de tickets em lote: aceita a colagem como ela vem
 const colagem = "999881527748083\n999881549481448, 999881582349743\t999881527748083\n\n";

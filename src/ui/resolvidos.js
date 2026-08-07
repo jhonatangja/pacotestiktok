@@ -8,8 +8,17 @@
 // e reaparece nas pendências com a marca "Voltou a se mover". Ver domain.js.
 // ---------------------------------------------------------------------------
 
+import { DESFECHO_META } from "../tratativa.js";
 import { escapeHtml, tomVars, duracao, dataHoraLonga, iniciais } from "./format.js";
 import { listaVazia } from "./cards.js";
+
+/** Como o pacote saiu do circuito — inclui a saída automática por outra base. */
+function desfechoDe(p) {
+  if (p.desfecho === "outra_base") {
+    return { label: `Recebido em ${p.outraBase ?? "outra base"}`, icone: "🏢", tom: "nabase" };
+  }
+  return DESFECHO_META[p.desfecho] ?? { label: "Resolvida", icone: "✅", tom: "ok" };
+}
 
 export const pacotesResolvidos = (packages) => packages.filter((p) => p.resolvido);
 
@@ -48,15 +57,16 @@ export function renderResolvidos(el, packages, tratativas) {
 function card(p, t) {
   const notas = t?.notas ?? [];
   const ultima = notas[notas.length - 1];
+  const d = desfechoDe(p);
 
   return `
-    <button class="pkg" style="${tomVars("ok")}" data-pkg="${escapeHtml(p.pkgId)}">
+    <button class="pkg" style="${tomVars(d.tom)}" data-pkg="${escapeHtml(p.pkgId)}">
       <div class="pkg__top">
         <div>
           <div class="pkg__code">${escapeHtml(p.pkgId)}</div>
           <div class="pkg__dest">${escapeHtml(p.destCity ?? "—")}${p.destState ? "/" + escapeHtml(p.destState) : ""}</div>
         </div>
-        <span class="pill">Resolvida</span>
+        <span class="pill">${d.icone} ${escapeHtml(d.label)}</span>
       </div>
 
       ${p.responsavelResolucao ? `

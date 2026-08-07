@@ -425,6 +425,58 @@ p { margin: 0; }
 .trat__add { display: flex; gap: 7px; }
 .trat__add .input { flex: 1; font-size: 13.5px; }
 
+/* ------------------------------------------- finalizar / ações da equipe */
+.trat__finalizar { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--tone-line); }
+.trat__finalizar-label {
+  display: block; margin-bottom: 7px;
+  font-size: 11px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--ink-3);
+}
+
+.acoes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.acao {
+  display: flex; align-items: flex-start; gap: 9px;
+  padding: 9px 11px; border-radius: var(--radius-sm);
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-left: 3px solid var(--tone, var(--transito));
+}
+.acao__icone { font-size: 14px; line-height: 1.3; flex: none; }
+.acao__corpo { min-width: 0; }
+.acao__label { display: block; font-size: 13px; font-weight: 550; }
+.acao__quem { display: block; font-size: 11.5px; color: var(--ink-3); margin-top: 1px; }
+.acao__quem b { color: var(--tone); font-weight: 700; }
+
+/* ----------------------------------------------------------- fechamento */
+.fechamento-lista { display: flex; flex-direction: column; gap: 9px; }
+.fech-row {
+  display: flex; align-items: center; gap: 11px;
+  padding: 12px 14px; border-radius: var(--radius-sm);
+  background: var(--surface); border: 1px solid var(--line);
+  border-left: 3px solid var(--tone, var(--transito));
+  box-shadow: var(--shadow);
+}
+.fech-row .avatar {
+  display: grid; place-items: center; flex: none;
+  width: 34px; height: 34px; border-radius: 50%;
+  font-size: 12px; font-weight: 700; color: var(--navy); background: var(--navy-100);
+}
+.fech-row__body { flex: 1; min-width: 0; }
+.fech-row__name { font-size: 14px; font-weight: 650; }
+.fech-row__meta { font-size: 12.5px; color: var(--ink-2); margin-top: 1px; }
+.fech-row__pkgs { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.fech-pkg {
+  font-size: 11.5px; font-variant-numeric: tabular-nums; cursor: pointer;
+  padding: 3px 8px; border-radius: 7px;
+  background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2);
+  transition: background .16s var(--ease), color .16s var(--ease);
+}
+.fech-pkg:hover { background: var(--navy-100); color: var(--ink); }
+
+@media (max-width: 560px) {
+  .fech-row { flex-wrap: wrap; }
+  .fech-row .btn { flex: 1; }
+}
+
 /* ------------------------------------------------------------ despacho */
 .dispatch {
   padding: 12px 13px; border-radius: var(--radius-sm); margin-bottom: 9px;

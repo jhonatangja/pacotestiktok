@@ -105,6 +105,46 @@ export function mensagemCobranca(m, enrichment = {}) {
   return l.join("\n");
 }
 
+/**
+ * Cobrança de fechamento: não pergunta "como está", exige o registro no JMS.
+ * É a diferença entre uma conversa que se perde e um dado que fica.
+ */
+export function mensagemFechamentoMotorista(m, enrichment = {}, pacotes = null) {
+  const lista = pacotes ?? m.abertos.map((d) => d.pacote);
+  if (!lista.length) return null;
+
+  const l = [];
+  l.push(`${saudacao()}, ${primeiroNome(m.driver)}.`);
+  l.push("");
+  l.push(lista.length === 1
+    ? `Fechando o dia — ainda consta 1 pacote da TikTok Shop com você:`
+    : `Fechando o dia — ainda constam ${lista.length} pacotes da TikTok Shop com você:`);
+  l.push("");
+
+  for (const p of lista) {
+    const e = enrichment[p.pkgId];
+    const quem = e?.destinatario ? ` — ${e.destinatario}` : "";
+    const onde = e?.bairro ?? p.destCity;
+    const marca = p.ticketAberto ? "🔴" : "•";
+    l.push(`${marca} ${p.pkgId}${quem}${onde ? ` (${onde})` : ""}`);
+    if (p.horasComMotorista != null) l.push(`   com você há ${duracao(p.horasComMotorista)}`);
+  }
+
+  l.push("");
+  l.push(`Preciso que você ATUALIZE NO JMS a situação atual de cada um ainda hoje.`);
+  l.push("");
+  l.push(`O pacote só sai da minha lista quando estiver registrado como:`);
+  l.push(`1) entregue;`);
+  l.push(`2) devolvido ao galpão;`);
+  l.push(`3) recebido em outra base.`);
+  l.push("");
+  l.push(`Se não deu para entregar, registre a problemática no sistema com o print da tentativa de contato — sem isso o pacote continua no seu nome.`);
+  l.push("");
+  l.push(`Me confirma quando tiver atualizado, por favor.`);
+
+  return l.join("\n");
+}
+
 /** Resumo curto do que pesa contra o motorista — usado nos cartões da lista. */
 export function resumoMotorista(m) {
   const partes = [];

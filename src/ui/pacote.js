@@ -7,14 +7,15 @@
 // ---------------------------------------------------------------------------
 
 import { FACT } from "../config.js";
-import { STATUS, STATUS_META, situacaoTratativa } from "../tratativa.js";
+import { STATUS, STATUS_META, DESFECHO, DESFECHO_META, situacaoTratativa } from "../tratativa.js";
+import { ACAO_META, doPacote } from "../atividades.js";
 import { formatarValor, enderecoCompleto } from "../enrich.js";
 import {
   escapeHtml, TOM, tomVars, duracao, dataHora, dataHoraLonga, iniciais,
   flagLabel, flagHint, flagClasse, desfecho, FATO_QUENTE, TOM_DO_FATO,
 } from "./format.js";
 
-export function renderPacote(el, p, tratativa, dadosCliente) {
+export function renderPacote(el, p, tratativa, dadosCliente, atividades = []) {
   const tom = TOM[p.situacao] ?? "transito";
 
   el.situacao.textContent = `${p.situacaoLabel} · ${p.acao}`;
@@ -51,9 +52,39 @@ export function renderPacote(el, p, tratativa, dadosCliente) {
         : `<p style="color:var(--ink-3);font-size:13.5px">Nunca saiu para entrega.</p>`}
     </div>
 
+    ${secaoAtividades(p, atividades)}
+
     <div class="drawer__section">
-      <h3>Histórico completo</h3>
+      <h3>Histórico completo do JMS</h3>
       <div class="timeline">${p.timeline.map(itemTimeline).join("")}</div>
+    </div>`;
+}
+
+/**
+ * O que a EQUIPE fez neste pacote — separado da timeline do JMS, que é
+ * máquina bipando. Aqui é gente: quem cobrou, quem assumiu, quem finalizou.
+ */
+function secaoAtividades(p, atividades) {
+  const lista = doPacote(atividades, p.pkgId);
+
+  return `
+    <div class="drawer__section">
+      <h3>Ações da equipe ${lista.length ? `<span class="trat__state">${lista.length}</span>` : ""}</h3>
+      ${lista.length ? `
+      <ol class="acoes">
+        ${lista.map((a) => {
+          const meta = ACAO_META[a.tipo] ?? { label: a.tipo, icone: "•", tom: "transito" };
+          return `
+          <li class="acao" style="${tomVars(meta.tom)}">
+            <span class="acao__icone">${meta.icone}</span>
+            <span class="acao__corpo">
+              <span class="acao__label">${escapeHtml(meta.label)}${a.detalhe ? `: ${escapeHtml(a.detalhe)}` : ""}</span>
+              <span class="acao__quem"><b>${escapeHtml(a.autor)}</b> · ${dataHoraLonga(new Date(a.em).getTime())}</span>
+            </span>
+          </li>`;
+        }).join("")}
+      </ol>`
+      : `<p style="color:var(--ink-3);font-size:13.5px">Nenhuma ação registrada ainda neste pacote.</p>`}
     </div>`;
 }
 
@@ -121,11 +152,26 @@ function secaoTratativa(p, t) {
       <h3>Tratativa <span class="trat__state">${escapeHtml(s.label)}</span></h3>
 
       <div class="trat__status">
-        ${Object.values(STATUS).map((k) => `
+        ${[STATUS.ABERTA, STATUS.EM_ANDAMENTO].map((k) => `
           <button class="trat__opt ${t?.status === k || (!t && k === STATUS.ABERTA) ? "is-on" : ""}"
                   style="${tomVars(STATUS_META[k].tom)}" data-status="${k}">
             ${escapeHtml(STATUS_META[k].label)}
           </button>`).join("")}
+      </div>
+
+      <div class="trat__finalizar">
+        <span class="trat__finalizar-label">Finalizar o pacote como</span>
+        <div class="trat__status">
+          ${Object.values(DESFECHO).map((d) => {
+            const meta = DESFECHO_META[d];
+            const ativo = t?.status === STATUS.RESOLVIDA && t?.desfecho === d;
+            return `
+            <button class="trat__opt ${ativo ? "is-on" : ""}" style="${tomVars(meta.tom)}"
+                    data-desfecho="${d}" title="${escapeHtml(meta.hint)}">
+              ${meta.icone} ${escapeHtml(meta.label)}
+            </button>`;
+          }).join("")}
+        </div>
       </div>
 
       <div class="trat__grid">

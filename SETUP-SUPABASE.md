@@ -40,22 +40,32 @@ create table if not exists public.meta (
   key text primary key, value jsonb
 );
 
+-- Log de ações da equipe (append-only): quem cobrou, assumiu, finalizou
+create table if not exists public.activities (
+  id text primary key, pkg_id text, em timestamptz,
+  payload jsonb not null, inserted_at timestamptz default now()
+);
+create index if not exists activities_pkg_id_idx on public.activities (pkg_id);
+create index if not exists activities_em_idx on public.activities (em desc);
+
 -- Segurança: só quem está logado lê ou escreve (a chave pública sozinha não abre nada)
 alter table public.events     enable row level security;
 alter table public.treatments enable row level security;
 alter table public.enrichment enable row level security;
 alter table public.contacts   enable row level security;
 alter table public.meta       enable row level security;
+alter table public.activities enable row level security;
 
 create policy "operadores" on public.events     for all to authenticated using (true) with check (true);
 create policy "operadores" on public.treatments for all to authenticated using (true) with check (true);
 create policy "operadores" on public.enrichment for all to authenticated using (true) with check (true);
 create policy "operadores" on public.contacts   for all to authenticated using (true) with check (true);
 create policy "operadores" on public.meta       for all to authenticated using (true) with check (true);
+create policy "operadores" on public.activities for all to authenticated using (true) with check (true);
 
 -- Tempo real: avisa todos os operadores quando algo muda
 alter publication supabase_realtime add table
-  public.events, public.treatments, public.enrichment, public.contacts, public.meta;
+  public.events, public.treatments, public.enrichment, public.contacts, public.meta, public.activities;
 ```
 
 Deve aparecer "Success. No rows returned".

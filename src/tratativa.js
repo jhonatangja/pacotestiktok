@@ -22,6 +22,23 @@ export const STATUS_META = {
   [STATUS.RESOLVIDA]:    { label: "Resolvida",    tom: "ok" },
 };
 
+/**
+ * Como o pacote saiu do circuito. O JMS não traz a baixa, então quem fecha é
+ * a operação — e precisa dizer COMO fechou, senão "resolvido" vira um saco
+ * onde cabe qualquer coisa.
+ */
+export const DESFECHO = {
+  ENTREGUE:  "entregue",
+  DEVOLVIDO: "devolvido",
+};
+
+export const DESFECHO_META = {
+  [DESFECHO.ENTREGUE]:  { label: "Entregue",  icone: "✅", tom: "ok",
+                          hint: "Chegou ao destinatário." },
+  [DESFECHO.DEVOLVIDO]: { label: "Devolvido", icone: "↩️", tom: "nabase",
+                          hint: "Voltou para a malha — devolvido ao remetente ou a outra base." },
+};
+
 export function novaTratativa(pkgId) {
   return {
     pkgId,

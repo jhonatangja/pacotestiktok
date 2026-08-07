@@ -102,15 +102,37 @@ node tools/validate.js
 4. **Galpão** — cada pacote retornado vira tarefa com responsável, prazo e registros.
 5. **Motoristas** — o cadastro de motoristas: todos que já apareceram num pacote, mais quem
    você registrar à mão. Guarde o WhatsApp uma vez e cobre com um clique de qualquer tela.
-6. **Resolvidos** — o arquivo dos casos encerrados, fora do caminho.
+6. **Fechamento** — a varredura do fim do dia: tudo que ainda está no circuito, com
+   cobrança de um clique por motorista exigindo a atualização da situação no JMS.
+7. **Resolvidos** — o arquivo dos casos encerrados, fora do caminho.
 6. **Copiar códigos para reconsultar** — devolve a lista de pedidos ainda em aberto,
    pronta para colar na consulta do JMS no dia seguinte.
 
+## Ações da equipe (quem fez o quê)
+
+Toda ação de operador fica registrada no card do pacote, com **autor e horário**: cobrou,
+marcou ticket, assumiu, definiu prazo, registrou tentativa, finalizou. O log é
+**append-only** — nunca editado nem apagado, senão não serviria para prestar contas.
+
+É separado do histórico do JMS de propósito: aquele é máquina bipando, este é gente
+decidindo. No modo nuvem o autor é o usuário logado (`base`, `samuel`, `jessica`), e o
+registro de dois operadores agindo no mesmo segundo não se sobrescreve.
+
 ## Encerrar um caso
 
-Marcar a tratativa como **resolvida** tira o pacote do Painel de Ação, da fila do galpão
-e da cobrança de uma vez — ele vai para a aba **Resolvidos**, de onde volta com um clique
-em "Aberta".
+Um pacote sai do circuito de três formas:
+
+| Desfecho | Como acontece |
+|---|---|
+| ✅ **Entregue** | o operador finaliza no sistema |
+| ↩️ **Devolvido** | o operador finaliza no sistema |
+| 🏢 **Recebido em outra base** | **automático** — o próprio JMS avisa |
+
+O terceiro não depende de ninguém: quando aparece um `bipe de recebimento` numa base
+diferente da sua, outra unidade assumiu o pacote e ele sai do seu circuito sozinho.
+
+Finalizar tira o pacote do Painel de Ação, da fila do galpão, da cobrança e do fechamento
+de uma vez — ele vai para a aba **Resolvidos**, de onde volta com um clique em "Aberta".
 
 A resolução vale **enquanto o pacote não se mexer**. Se chegar um bipe posterior ao
 encerramento, o caso reabre sozinho e reaparece nas pendências marcado como

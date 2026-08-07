@@ -38,6 +38,7 @@ const PK = {
   treatments: "pkg_id",
   enrichment: "pkg_id",
   contacts: "driver",
+  activities: "id",
   meta: "key",
 };
 
@@ -122,6 +123,20 @@ export function createSupabaseRepo(client) {
     async deleteContact(driver) {
       const { error } = await sb.from("contacts").delete().eq("driver", driver);
       if (error) throw new Error(`Falha ao apagar contato: ${error.message}`);
+    },
+
+    // -- atividades ---------------------------------------------------------
+    getActivities: () => selectAll("activities"),
+
+    /**
+     * Insert puro, não upsert: o log é append-only e cada operador escreve a
+     * sua própria linha. Dois registrando ao mesmo tempo não se sobrescrevem.
+     */
+    async putActivity(a) {
+      const { error } = await sb.from("activities")
+        .upsert({ id: a.id, pkg_id: a.pkgId, em: a.em, payload: a }, { onConflict: "id", ignoreDuplicates: true });
+      if (error) throw new Error(`Falha ao registrar atividade: ${error.message}`);
+      return a.id;
     },
 
     // -- meta (config, log de importações, cobranças) -----------------------

@@ -10,7 +10,7 @@
 // ---------------------------------------------------------------------------
 
 import {
-  FACT, FECHAMENTOS, SLA_PADRAO, PREFIXO_MOTORISTA_PADRAO,
+  FACT, FECHAMENTOS, SLA_PADRAO, PREFIXO_MOTORISTA_PADRAO, BASE_OPERACAO,
   SITUACAO, SITUACAO_META, FLAG, FLAG_META,
 } from "./config.js";
 import { sortEvents, stripDriverPrefix } from "./ingest.js";
@@ -69,7 +69,18 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
   const primeiro = timeline[0];
 
   const coletadoEm = timeline.find((e) => e.fact === FACT.COLETA)?.ts ?? null;
-  const recebidoNaBaseEm = timeline.find((e) => e.fact === FACT.RECEBIDO_BASE)?.ts ?? null;
+
+  // Recebimentos formais em base de última milha. O primeiro que bate com a
+  // nossa base marca o início da responsabilidade; um recebimento em base
+  // DIFERENTE significa que outra unidade assumiu o pacote — ele saiu daqui.
+  const recebimentos = timeline.filter((e) => e.fact === FACT.RECEBIDO_BASE);
+  const daNossaBase = (b) => !b || !BASE_OPERACAO ||
+    b.trim().toUpperCase() === BASE_OPERACAO.trim().toUpperCase();
+
+  const recebidoNaBaseEm = (recebimentos.find((e) => daNossaBase(e.base)) ?? recebimentos[0])?.ts ?? null;
+  const emOutraBase = recebimentos.find(
+    (e) => !daNossaBase(e.base) && (recebidoNaBaseEm == null || e.ts >= recebidoNaBaseEm)
+  ) ?? null;
 
   // --- passada única: abre e fecha despachos na ordem em que os fatos ocorrem
   const despachos = [];
@@ -118,7 +129,9 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
 
   // --- situação (excludente, na ordem de urgência)
   let situacao;
-  if (ultimo.fact === FACT.GALPAO) situacao = SITUACAO.RETORNADO_GALPAO;
+  // Outra base recebeu: o pacote saiu do circuito daqui e nada mais é cobrável.
+  if (emOutraBase) situacao = SITUACAO.RECEBIDO_OUTRA_BASE;
+  else if (ultimo.fact === FACT.GALPAO) situacao = SITUACAO.RETORNADO_GALPAO;
   else if (despachoAberto) situacao = despachoAberto.estourado
     ? SITUACAO.COM_MOTORISTA_ESTOURADO
     : SITUACAO.COM_MOTORISTA_NO_PRAZO;
@@ -150,7 +163,12 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
     ? (tratativa.atualizadaEm ? new Date(tratativa.atualizadaEm).getTime() : Infinity)
     : null;
   const movimentoAposResolver = resolvidaEm != null && ultimo.ts > resolvidaEm;
-  const resolvido = resolvidaEm != null && !movimentoAposResolver;
+  const finalizadoPeloOperador = resolvidaEm != null && !movimentoAposResolver;
+
+  // Recebimento em outra base encerra sozinho: é evidência do próprio JMS de
+  // que o pacote deixou este circuito, e nenhuma decisão humana muda isso.
+  const resolvido = finalizadoPeloOperador || !!emOutraBase;
+  const desfecho = emOutraBase ? "outra_base" : (finalizadoPeloOperador ? (tratativa?.desfecho ?? null) : null);
 
   // --- flags (acumuláveis)
   const flags = [];
@@ -202,8 +220,10 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
     ticketAberto,
     ticketRef: tratativa?.ticket?.ref || null,
     resolvido,
-    resolvidaEm: resolvido ? resolvidaEm : null,
-    responsavelResolucao: resolvido ? (tratativa?.responsavel || null) : null,
+    desfecho,
+    resolvidaEm: emOutraBase ? emOutraBase.ts : (resolvido ? resolvidaEm : null),
+    responsavelResolucao: finalizadoPeloOperador ? (tratativa?.responsavel || null) : null,
+    outraBase: emOutraBase ? emOutraBase.base : null,
 
     motoristaAtual: despachoAberto?.driver ?? null,
     horasComMotorista: despachoAberto?.horasPosse ?? null,
