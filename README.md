@@ -9,7 +9,7 @@ não pode ser esquecido.
 Um pacote sob posse de motorista só tem **três saídas legítimas**:
 
 1. registrar a problemática;
-2. finalizar a entrega;
+2. finalizar a entrega — hoje com evidência formal: o bipe `assinatura de encomenda`;
 3. devolver ao galpão.
 
 Qualquer outro desfecho é pendência. O caso mais grave — e invisível no JMS — é o
@@ -177,12 +177,14 @@ Um pacote sai do circuito de três formas:
 
 | Desfecho | Como acontece |
 |---|---|
-| ✅ **Entregue** | o operador finaliza no sistema |
-| ↩️ **Devolvido** | o operador finaliza no sistema |
-| 🏢 **Recebido em outra base** | **automático** — o próprio JMS avisa |
+| ✅ **Entregue ao cliente** | **automático** — bipe `assinatura de encomenda` no JMS |
+| 🏢 **Recebido em outra base** | **automático** — `bipe de recebimento` em base diferente da sua |
+| ✅ **Entregue** / ↩️ **Devolvido** | o operador finaliza no sistema |
 
-O terceiro não depende de ninguém: quando aparece um `bipe de recebimento` numa base
-diferente da sua, outra unidade assumiu o pacote e ele sai do seu circuito sozinho.
+Os dois primeiros não dependem de ninguém aqui. A **assinatura de encomenda** é a evidência
+mais forte que o sistema conhece: o cliente assinou, o pacote está encerrado — e essa baixa
+ganha até de uma marcação manual em sentido contrário. Um pacote assinado sai na hora do
+Painel, da Cobrança, do Galpão, do Fechamento e da lista de reconsulta, e não reabre.
 
 Finalizar tira o pacote do Painel de Ação, da fila do galpão, da cobrança e do fechamento
 de uma vez — ele vai para a aba **Resolvidos**, de onde volta com um clique em "Aberta".
@@ -255,6 +257,8 @@ Três decisões que sustentam o resto:
 
 ## Detalhes do JMS que custam caro se ignorados
 
+- `assinatura de encomenda` é a **baixa da entrega** — o único bipe que encerra o pacote
+  sozinho e em definitivo. Fecha o despacho aberto e tira o pacote de todas as filas.
 - `Digitalizador` **≠** `Correio de coleta ou entrega`. O primeiro é quem bipou (conferente
   ou até um equipamento), o segundo é quem está com o pacote. A cobrança usa **sempre** o
   segundo.

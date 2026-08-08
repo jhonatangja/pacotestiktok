@@ -147,6 +147,20 @@ function secaoTratativa(p, t) {
   const s = situacaoTratativa(t);
   const notas = t?.notas ?? [];
 
+  // Com assinatura do cliente não há tratativa a fazer: o pacote acabou, e
+  // mexer no status aqui só criaria a ilusão de que dá para reabrir.
+  if (p.entregueEm) {
+    return `
+      <div class="drawer__section trat" style="${tomVars("ok")}">
+        <h3>Tratativa <span class="trat__state">Encerrada</span></h3>
+        <p class="hint" style="margin:0">
+          ✅ <b>Entregue ao cliente</b>${p.entreguePor ? ` por ${escapeHtml(p.entreguePor)}` : ""}
+          em ${dataHoraLonga(p.entregueEm)}. A baixa veio do próprio JMS
+          (<code>assinatura de encomenda</code>) e não depende de nada aqui.
+        </p>
+      </div>`;
+  }
+
   return `
     <div class="drawer__section trat" style="${tomVars(s.tom)}" data-trat="${escapeHtml(p.pkgId)}">
       <h3>Tratativa <span class="trat__state">${escapeHtml(s.label)}</span></h3>

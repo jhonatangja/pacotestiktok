@@ -12,8 +12,9 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { buildEvents, dedupeEvents, mergeEvents } from "../src/ingest.js";
+import { buildEvents, dedupeEvents, mergeEvents, normalize, reclassifyEvents, stripDriverPrefix } from "../src/ingest.js";
 import { buildPackages, codigosEmAberto } from "../src/domain.js";
+import { codigosParaReconsultar } from "../src/export.js";
 import { createMemoryRepo } from "../src/repo.js";
 import { separarCodigos } from "../src/tratativa.js";
 import { mensagemCobranca, prazoDaCobranca } from "../src/charge.js";
@@ -23,7 +24,7 @@ import { pacotesDoGalpao } from "../src/ui/galpao.js";
 import { pacotesResolvidos } from "../src/ui/resolvidos.js";
 import { noCircuito } from "../src/ui/fechamento.js";
 import { ACAO, definirAutor, novaAtividade, cobradoHoje } from "../src/atividades.js";
-import { FLAG, SITUACAO } from "../src/config.js";
+import { FLAG, SITUACAO, FACT, STAGE, SCAN_TYPES, FECHAMENTOS } from "../src/config.js";
 
 const require = createRequire(import.meta.url);
 const XLSX = require("../vendor/xlsx.full.min.js");
@@ -237,6 +238,67 @@ check("separa códigos de qualquer colagem", separarCodigos(colagem).length, 3);
 check("colagem não duplica código repetido",
   separarCodigos(colagem).filter((c) => c === "999881527748083").length, 1);
 check("colagem vazia não vira código", separarCodigos("  \n , ; \n").length, 0);
+
+// `assinatura de encomenda`: a baixa que o próprio JMS dá. Encerra o pacote
+// sem depender de decisão de ninguém na base.
+check("assinatura de encomenda está mapeada",
+  SCAN_TYPES[normalize("assinatura de encomenda")]?.fact, FACT.ENTREGA);
+check("assinatura fecha despacho", FECHAMENTOS.includes(FACT.ENTREGA), true);
+
+const alvoEntrega = "999881516619685";                 // estava com motorista, em aberto
+
+// evento antigo, guardado antes do tipo existir no dicionário, é reclassificado
+// na leitura — o histórico já no banco passa a valer sem reimportar nada
+const velho = { id: "x", pkgId: alvoEntrega, ts: agora, rawType: "assinatura de encomenda",
+                fact: FACT.OUTRO, stage: STAGE.OUTRO, label: "assinatura de encomenda" };
+check("bipe antigo é reclassificado na leitura", reclassifyEvents([velho])[0].fact, FACT.ENTREGA);
+
+// a filial aparece numerada em alguns bipes e não pode virar outro motorista
+check("prefixo da filial some", stripDriverPrefix("F RVD - MAYCON SILVA MOURA", "F RVD -"), "MAYCON SILVA MOURA");
+check("prefixo numerado da filial também some",
+  stripDriverPrefix("F RVD 02 - MAYCON SILVA MOURA", "F RVD -"), "MAYCON SILVA MOURA");
+check("nome sem prefixo passa intacto",
+  stripDriverPrefix("MAYCON SILVA MOURA", "F RVD -"), "MAYCON SILVA MOURA");
+check("reclassificar não mexe em quem já estava certo",
+  reclassifyEvents(limpos).filter((e, i) => e !== limpos[i]).length, 0);
+
+check("antes da assinatura o pacote está no circuito",
+  packages.find((p) => p.pkgId === alvoEntrega).resolvido, false);
+
+const assinatura = {
+  id: `${alvoEntrega}|sintetico|assinatura`, pkgId: alvoEntrega,
+  ts: agora + 3600000, tsISO: new Date(agora + 3600000).toISOString(),
+  rawType: "assinatura de encomenda", fact: FACT.ENTREGA, stage: STAGE.ENTREGUE,
+  label: "Entregue ao cliente", base: "F RVD - GO",
+  scanner: "F RVD - CONFERENTE", courier: "F RVD - MOTORISTA DE TESTE",
+};
+const comEntrega = buildPackages([...limpos, assinatura], {
+  now: agora + 7200000,
+  // mesmo marcado à mão como "em andamento", a assinatura manda
+  tratativas: { [alvoEntrega]: { pkgId: alvoEntrega, status: "em_andamento",
+                                 ticket: { aberto: true, ref: "TT-9" } } },
+});
+const entregue = comEntrega.packages.find((p) => p.pkgId === alvoEntrega);
+
+check("assinatura resolve o pacote", entregue.resolvido, true);
+check("assinatura vira desfecho entregue", entregue.desfecho, "entregue");
+check("assinatura vira situação própria", entregue.situacao, SITUACAO.ENTREGUE);
+check("assinatura carimba a data da baixa", entregue.resolvidaEm, assinatura.ts);
+check("assinatura identifica quem entregou", entregue.entreguePor, "MOTORISTA DE TESTE");
+check("assinatura fecha o despacho aberto",
+  entregue.despachos.every((d) => !d.aberto), true);
+check("entregue sai do circuito",
+  noCircuito(comEntrega.packages).some((p) => p.pkgId === alvoEntrega), false);
+check("entregue sai da cobrança do motorista",
+  comEntrega.byDriver.some((m) => m.pacotes.includes(alvoEntrega)), false);
+check("entregue não é mais cliente aguardando", entregue.clienteAguardando, false);
+check("ticket aberto não segura um pacote entregue", entregue.ticketAberto, false);
+check("entregue vai para os resolvidos",
+  pacotesResolvidos(comEntrega.packages).some((p) => p.pkgId === alvoEntrega), true);
+check("entregue não conta como voltou a se mover",
+  entregue.flags.includes(FLAG.MOVIMENTO_APOS_RESOLVIDA), false);
+check("entregue sai da lista de reconsultar no JMS",
+  codigosParaReconsultar(comEntrega.packages, {}).includes(alvoEntrega), false);
 
 // cobrança: todo pacote no circuito é cliente esperando, e o prazo exigido
 // muda sozinho no corte das 14h

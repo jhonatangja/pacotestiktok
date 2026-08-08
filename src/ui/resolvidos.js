@@ -14,6 +14,11 @@ import { listaVazia } from "./cards.js";
 
 /** Como o pacote saiu do circuito — inclui a saída automática por outra base. */
 function desfechoDe(p) {
+  // A assinatura do cliente é o encerramento mais forte que existe, e não veio
+  // de decisão de ninguém aqui — vale dizer isso no cartão.
+  if (p.entregueEm) {
+    return { label: "Entregue ao cliente", icone: "✅", tom: "ok" };
+  }
   if (p.desfecho === "outra_base") {
     return { label: `Recebido em ${p.outraBase ?? "outra base"}`, icone: "🏢", tom: "nabase" };
   }
@@ -32,6 +37,7 @@ export function renderResolvidos(el, packages, tratativas) {
     return;
   }
 
+  const entregues = lista.filter((p) => p.entregueEm).length;
   const comDono = lista.filter((p) => p.responsavelResolucao).length;
 
   el.innerHTML = `
@@ -40,6 +46,11 @@ export function renderResolvidos(el, packages, tratativas) {
         <span class="stat__value" style="color:var(--ok)">${lista.length}</span>
         <span class="stat__label">casos encerrados</span>
       </div>
+      ${entregues ? `
+      <div class="stat" style="--accent:var(--ok)">
+        <span class="stat__value" style="color:var(--ok)">${entregues}</span>
+        <span class="stat__label">entregues ao cliente</span>
+      </div>` : ""}
       <div class="stat" style="--accent:var(--transito)">
         <span class="stat__value">${comDono}</span>
         <span class="stat__label">com responsável registrado</span>
@@ -49,6 +60,7 @@ export function renderResolvidos(el, packages, tratativas) {
     <p class="hint" style="margin-bottom:14px">
       Clique em qualquer pacote para reabrir — basta voltar o status para "Aberta".
       Se um pacote resolvido receber bipe novo, ele volta sozinho para as pendências.
+      ${entregues ? `Pacote com <b>assinatura do cliente</b> não reabre: a baixa é do próprio JMS.` : ""}
     </p>
 
     <div class="cards">${lista.map((p) => card(p, tratativas[p.pkgId])).join("")}</div>`;
@@ -69,15 +81,16 @@ function card(p, t) {
         <span class="pill">${d.icone} ${escapeHtml(d.label)}</span>
       </div>
 
-      ${p.responsavelResolucao ? `
+      ${p.entreguePor || p.responsavelResolucao ? `
       <div class="pkg__driver">
-        <span class="avatar">${escapeHtml(iniciais(p.responsavelResolucao))}</span>
-        <span>${escapeHtml(p.responsavelResolucao)}</span>
+        <span class="avatar">${escapeHtml(iniciais(p.entreguePor ?? p.responsavelResolucao))}</span>
+        <span>${escapeHtml(p.entreguePor ?? p.responsavelResolucao)}</span>
       </div>` : ""}
 
       <div class="pkg__facts">
-        <span>Encerrado ${p.resolvidaEm && isFinite(p.resolvidaEm) ? "em " + dataHoraLonga(p.resolvidaEm) : "sem data"}</span>
-        <span>Era: <b>${escapeHtml(p.situacaoLabel)}</b></span>
+        <span>${p.entregueEm ? "Assinado" : "Encerrado"} ${p.resolvidaEm && isFinite(p.resolvidaEm) ? "em " + dataHoraLonga(p.resolvidaEm) : "sem data"}</span>
+        ${p.entregueEm ? `<span>Baixa automática pelo <b>JMS</b></span>`
+          : `<span>Era: <b>${escapeHtml(p.situacaoLabel)}</b></span>`}
         ${notas.length ? `<span><b>${notas.length}</b> registro${notas.length > 1 ? "s" : ""}</span>` : ""}
       </div>
 

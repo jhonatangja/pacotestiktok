@@ -11,6 +11,7 @@ export const escapeHtml = (s) =>
 
 /** Cada situação tem uma cor com significado fixo em todo o sistema. */
 export const TOM = {
+  [SITUACAO.ENTREGUE]:                "ok",
   [SITUACAO.RETORNADO_GALPAO]:        "galpao",
   [SITUACAO.COM_MOTORISTA_ESTOURADO]: "atrasado",
   [SITUACAO.OCORRENCIA_EM_ABERTO]:    "ocorrencia",
@@ -76,6 +77,8 @@ export function desfecho(d) {
   if (d.aberto) return { texto: `Em aberto há <b>${duracao(d.horasPosse)}</b>`, tom: d.estourado ? "atrasado" : "ok" };
   if (d.anomalia === FLAG.REBIPE_SEM_TRATATIVA)
     return { texto: `Rebipado <b>${duracao(d.horasPosse)}</b> depois, <b>sem tratativa</b>`, tom: "atrasado" };
+  if (d.closedBy === FACT.ENTREGA)
+    return { texto: `Entregue ao cliente após <b>${duracao(d.horasPosse)}</b>`, tom: "ok" };
   if (d.closedBy === FACT.OCORRENCIA)
     return { texto: `Ocorrência após <b>${duracao(d.horasPosse)}</b>${d.motivo ? ` — ${escapeHtml(d.motivo)}` : ""}`, tom: "ocorrencia" };
   if (d.closedBy === FACT.GALPAO)
@@ -85,10 +88,11 @@ export function desfecho(d) {
 
 /** Fatos que merecem destaque visual na timeline. */
 export const FATO_QUENTE = new Set([
-  FACT.DESPACHO, FACT.OCORRENCIA, FACT.GALPAO, FACT.RECEBIDO_BASE,
+  FACT.DESPACHO, FACT.ENTREGA, FACT.OCORRENCIA, FACT.GALPAO, FACT.RECEBIDO_BASE,
 ]);
 
 export const TOM_DO_FATO = {
+  [FACT.ENTREGA]:       "ok",
   [FACT.DESPACHO]:      "ok",
   [FACT.OCORRENCIA]:    "ocorrencia",
   [FACT.GALPAO]:        "galpao",

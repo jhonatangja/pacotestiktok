@@ -61,6 +61,7 @@ export const FACT = {
   CHEGADA_HUB:   "CHEGADA_HUB",
   RECEBIDO_BASE: "RECEBIDO_BASE",
   DESPACHO:      "DESPACHO",
+  ENTREGA:       "ENTREGA",
   OCORRENCIA:    "OCORRENCIA",
   GALPAO:        "GALPAO",
   OUTRO:         "OUTRO",
@@ -71,6 +72,7 @@ export const STAGE = {
   TRANSITO:      "TRANSITO",
   BASE_FINAL:    "BASE_FINAL",
   COM_MOTORISTA: "COM_MOTORISTA",
+  ENTREGUE:      "ENTREGUE",
   OCORRENCIA:    "OCORRENCIA",
   GALPAO:        "GALPAO",
   OUTRO:         "OUTRO",
@@ -90,6 +92,9 @@ export const SCAN_TYPES = {
   "digitalizacao de descarga":                 { fact: FACT.CHEGADA_HUB,   stage: STAGE.TRANSITO,      label: "Chegada no centro" },
   "bipe de recebimento":                       { fact: FACT.RECEBIDO_BASE, stage: STAGE.BASE_FINAL,    label: "Recebido na base final" },
   "bipe de saida para entrega":                { fact: FACT.DESPACHO,      stage: STAGE.COM_MOTORISTA, label: "Saiu para entrega" },
+  // A baixa da entrega. É o único evento do JMS que encerra o pacote sozinho e
+  // em definitivo — o cliente assinou, acabou. Não depende de decisão da base.
+  "assinatura de encomenda":                   { fact: FACT.ENTREGA,       stage: STAGE.ENTREGUE,      label: "Entregue ao cliente" },
   "bipe de pacote problematico":               { fact: FACT.OCORRENCIA,    stage: STAGE.OCORRENCIA,    label: "Ocorrência registrada" },
   "entrada no galpao de pacote nao expedido":  { fact: FACT.GALPAO,        stage: STAGE.GALPAO,        label: "Retornou ao galpão" },
 };
@@ -114,7 +119,7 @@ export const FACT_WEIGHT = {
 // Desempate quando dois fatos distintos caem no mesmo timestamp.
 export const FACT_ORDER = [
   FACT.COLETA, FACT.RECEPCAO, FACT.LOTE, FACT.CHEGADA_HUB, FACT.RECEBIDO_BASE,
-  FACT.SAIDA_HUB, FACT.DESPACHO, FACT.OCORRENCIA, FACT.GALPAO, FACT.OUTRO,
+  FACT.SAIDA_HUB, FACT.DESPACHO, FACT.OCORRENCIA, FACT.GALPAO, FACT.ENTREGA, FACT.OUTRO,
 ];
 
 export const DEDUPE = {
@@ -125,9 +130,13 @@ export const DEDUPE = {
   genericoMs: 2 * 60 * 1000,
 };
 
-// As três saídas legítimas de um pacote que está com motorista.
-// Qualquer outro desfecho é pendência — em especial o rebipe sem tratativa.
-export const FECHAMENTOS = [FACT.OCORRENCIA, FACT.GALPAO];
+// As três saídas legítimas de um pacote que está com motorista — as mesmas três
+// que a cobrança enuncia. Qualquer outro desfecho é pendência, em especial o
+// rebipe sem tratativa.
+//
+// `assinatura de encomenda` é a mais forte das três: encerra o despacho E o
+// pacote. As outras duas só encerram o despacho.
+export const FECHAMENTOS = [FACT.ENTREGA, FACT.OCORRENCIA, FACT.GALPAO];
 
 export const SLA_PADRAO = {
   // Despacho aberto além disso = motorista estourou o prazo.
@@ -158,6 +167,7 @@ export const CORTE_ENTREGA_HOJE = 14;
 export const BASE_OPERACAO = "F RVD - GO";
 
 export const SITUACAO = {
+  ENTREGUE:                "ENTREGUE",
   RECEBIDO_OUTRA_BASE:     "RECEBIDO_OUTRA_BASE",
   RETORNADO_GALPAO:        "RETORNADO_GALPAO",
   COM_MOTORISTA_ESTOURADO: "COM_MOTORISTA_ESTOURADO",
@@ -172,6 +182,8 @@ export const SITUACAO = {
 // pendência viva, mesmo tendo saído há pouco. Por isso "no prazo" também cai
 // em "Cobrar motorista" — o prazo muda a cor, não a necessidade de cobrar.
 export const SITUACAO_META = {
+  // Terminal e definitivo: o cliente assinou. Nada a cobrar de ninguém.
+  [SITUACAO.ENTREGUE]:                { label: "Entregue ao cliente",      acao: "Encerrado",         peso: 0 },
   // Terminal: outra base assumiu o pacote, então ele saiu do seu circuito.
   [SITUACAO.RECEBIDO_OUTRA_BASE]:     { label: "Recebido em outra base",   acao: "Encerrado",         peso: 0 },
   [SITUACAO.RETORNADO_GALPAO]:        { label: "Retornou ao galpão",       acao: "Tratar no galpão",  peso: 100 },

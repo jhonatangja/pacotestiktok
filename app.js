@@ -7,7 +7,7 @@
 // ---------------------------------------------------------------------------
 
 import { createRepo } from "./src/repo.js";
-import { buildEvents, dedupeEvents, mergeEvents, parseWorkbook } from "./src/ingest.js";
+import { buildEvents, dedupeEvents, mergeEvents, parseWorkbook, reclassifyEvents } from "./src/ingest.js";
 import { buildPackages } from "./src/domain.js";
 import { SITUACAO_META, SLA_PADRAO } from "./src/config.js";
 import { renderPainel, pendencias } from "./src/ui/painel.js";
@@ -92,7 +92,9 @@ function toast(msg, tipo = "") {
 // ---------------------------------------------------------------------------
 async function recarregar() {
   state.raw = await repo.getEvents();
-  state.events = dedupeEvents(state.raw);
+  // reclassifica antes de deduplicar: tipo de bipagem mapeado depois da
+  // importação passa a valer sozinho, sem reimportar nada
+  state.events = dedupeEvents(reclassifyEvents(state.raw));
   state.cobrancas = (await repo.getMeta("cobrancas", {})) ?? {};
   state.tratativas = Object.fromEntries((await repo.getTreatments()).map((t) => [t.pkgId, t]));
   state.enrichment = Object.fromEntries((await repo.getEnrichment()).map((e) => [e.pkgId, e]));

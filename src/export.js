@@ -13,11 +13,14 @@ import { situacaoTratativa, STATUS } from "./tratativa.js";
 
 /**
  * Códigos que ainda merecem consulta no próximo export do JMS.
- * Fica de fora só o que está encerrado: tratativa resolvida.
+ *
+ * Fica de fora tudo que já está encerrado — e quem decide isso é o motor, não
+ * a tratativa: um pacote com assinatura do cliente ou recebido em outra base
+ * está resolvido sem que ninguém tenha marcado nada à mão.
  */
 export function codigosParaReconsultar(packages, tratativas = {}) {
   return packages
-    .filter((p) => tratativas[p.pkgId]?.status !== STATUS.RESOLVIDA)
+    .filter((p) => !p.resolvido && tratativas[p.pkgId]?.status !== STATUS.RESOLVIDA)
     .sort((a, b) => b.prioridade - a.prioridade)
     .map((p) => p.pkgId);
 }

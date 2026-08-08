@@ -14,7 +14,7 @@ import {
   SITUACAO, SITUACAO_META, FLAG, FLAG_META, CLIENTE_AGUARDANDO_SEMPRE,
 } from "./config.js";
 import { sortEvents, stripDriverPrefix } from "./ingest.js";
-import { STATUS } from "./tratativa.js";
+import { STATUS, DESFECHO } from "./tratativa.js";
 
 const H = 3600000;
 const horas = (ms) => (ms == null ? null : ms / H);
@@ -82,6 +82,10 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
     (e) => !daNossaBase(e.base) && (recebidoNaBaseEm == null || e.ts >= recebidoNaBaseEm)
   ) ?? null;
 
+  // `assinatura de encomenda`: o cliente assinou. É a evidência mais forte que
+  // existe no JMS e encerra o pacote sem depender de decisão de ninguém aqui.
+  const entrega = timeline.find((e) => e.fact === FACT.ENTREGA) ?? null;
+
   // --- passada única: abre e fecha despachos na ordem em que os fatos ocorrem
   const despachos = [];
   let aberto = null;
@@ -129,8 +133,10 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
 
   // --- situação (excludente, na ordem de urgência)
   let situacao;
+  // Entregue vem antes de tudo: o cliente assinou, acabou a discussão.
+  if (entrega) situacao = SITUACAO.ENTREGUE;
   // Outra base recebeu: o pacote saiu do circuito daqui e nada mais é cobrável.
-  if (emOutraBase) situacao = SITUACAO.RECEBIDO_OUTRA_BASE;
+  else if (emOutraBase) situacao = SITUACAO.RECEBIDO_OUTRA_BASE;
   else if (ultimo.fact === FACT.GALPAO) situacao = SITUACAO.RETORNADO_GALPAO;
   else if (despachoAberto) situacao = despachoAberto.estourado
     ? SITUACAO.COM_MOTORISTA_ESTOURADO
@@ -162,13 +168,19 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
   const resolvidaEm = tratativa?.status === STATUS.RESOLVIDA
     ? (tratativa.atualizadaEm ? new Date(tratativa.atualizadaEm).getTime() : Infinity)
     : null;
-  const movimentoAposResolver = resolvidaEm != null && ultimo.ts > resolvidaEm;
+  // Um bipe posterior reabre o caso — exceto a entrega. Assinatura que chega
+  // depois da baixa manual é confirmação do desfecho, não movimento novo.
+  const movimentoAposResolver = resolvidaEm != null && ultimo.ts > resolvidaEm && !entrega;
   const finalizadoPeloOperador = resolvidaEm != null && !movimentoAposResolver;
 
-  // Recebimento em outra base encerra sozinho: é evidência do próprio JMS de
-  // que o pacote deixou este circuito, e nenhuma decisão humana muda isso.
-  const resolvido = finalizadoPeloOperador || !!emOutraBase;
-  const desfecho = emOutraBase ? "outra_base" : (finalizadoPeloOperador ? (tratativa?.desfecho ?? null) : null);
+  // Dois desfechos encerram o pacote sozinhos, por evidência do próprio JMS:
+  // a assinatura do cliente e o recebimento em outra base. Nenhuma decisão
+  // humana muda isso — e a assinatura ganha de qualquer marcação manual, porque
+  // é o fato mais forte que o sistema conhece.
+  const resolvido = !!entrega || finalizadoPeloOperador || !!emOutraBase;
+  const desfecho = entrega ? DESFECHO.ENTREGUE
+    : emOutraBase ? "outra_base"
+    : (finalizadoPeloOperador ? (tratativa?.desfecho ?? null) : null);
 
   // --- flags (acumuláveis)
   const flags = [];
@@ -233,9 +245,13 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
     ticketRef: tratativa?.ticket?.ref || null,
     resolvido,
     desfecho,
-    resolvidaEm: emOutraBase ? emOutraBase.ts : (resolvido ? resolvidaEm : null),
+    resolvidaEm: entrega ? entrega.ts
+      : emOutraBase ? emOutraBase.ts
+      : (resolvido ? resolvidaEm : null),
     responsavelResolucao: finalizadoPeloOperador ? (tratativa?.responsavel || null) : null,
     outraBase: emOutraBase ? emOutraBase.base : null,
+    entregueEm: entrega?.ts ?? null,
+    entreguePor: entrega ? stripDriverPrefix(entrega.courier ?? entrega.scanner ?? "", prefixo) || null : null,
 
     motoristaAtual: despachoAberto?.driver ?? null,
     horasComMotorista: despachoAberto?.horasPosse ?? null,
@@ -339,6 +355,7 @@ function resumir(packages) {
  */
 export function codigosEmAberto(packages) {
   return packages
+    .filter((p) => !p.resolvido)
     .filter((p) => p.situacao !== SITUACAO.EM_TRANSITO || p.flags.includes(FLAG.SEM_MOVIMENTO))
     .map((p) => p.pkgId);
 }

@@ -51,7 +51,19 @@ export function stripDriverPrefix(raw, prefix) {
   const dash = (v) => String(v ?? "").replace(/[–—]/g, "-");
   let s = original;
   const p = dash(prefix).trim();
-  if (p && dash(s).toUpperCase().startsWith(p.toUpperCase())) s = s.slice(p.length);
+
+  if (p && dash(s).toUpperCase().startsWith(p.toUpperCase())) {
+    s = s.slice(p.length);
+  } else if (p) {
+    // A filial aparece numerada em alguns bipes (`F RVD 02 - FULANO`). É a mesma
+    // base com outro ponto de coleta, e o nome do motorista é o mesmo — deixar
+    // o número passar criaria um "motorista" duplicado na cobrança.
+    const semTraco = p.replace(/[\s\-]+$/, "");
+    const numerado = new RegExp(`^${semTraco.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\d+`, "i");
+    const achou = dash(s).match(numerado);
+    if (achou) s = s.slice(achou[0].length);
+  }
+
   s = s.replace(/^[\s\-–—:]+/, "").trim();
   return s || original;
 }
@@ -224,6 +236,25 @@ export function buildEvents(rows, headers, opts = {}) {
     .sort((a, b) => b.count - a.count);
 
   return { events, unknownTypes, skipped, missing: [] };
+}
+
+/**
+ * Reaplica o dicionário de tipos de bipagem sobre eventos já guardados.
+ *
+ * O `fact` é calculado na importação, mas o dicionário muda: quando um tipo
+ * novo é mapeado em `config.js` (foi o caso de `assinatura de encomenda`), tudo
+ * que já estava no banco continuaria como `OUTRO` para sempre. Como o `rawType`
+ * é guardado cru, dá para reclassificar na leitura — e ninguém precisa
+ * reimportar planilha nenhuma.
+ *
+ * Roda ANTES da deduplicação, que depende do fato para agrupar.
+ */
+export function reclassifyEvents(events) {
+  return events.map((e) => {
+    const known = SCAN_TYPES[normalize(e.rawType)];
+    if (!known || known.fact === e.fact) return e;
+    return { ...e, fact: known.fact, stage: known.stage, label: known.label };
+  });
 }
 
 /** Ordena por timestamp; empate no mesmo segundo resolve pela ordem lógica do fato. */
