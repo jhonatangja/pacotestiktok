@@ -28,7 +28,7 @@ import { daBase } from "../src/ui/painel.js";
 import { ACAO, definirAutor, novaAtividade, cobradoHoje } from "../src/atividades.js";
 import { FLAG, SITUACAO, SITUACAO_META, FACT, STAGE, SCAN_TYPES, FECHAMENTOS,
          responsavelDaConta, ehBasePropria, apelidoDaBase,
-         ehCidadeBase, slaExpedicao } from "../src/config.js";
+         ehCidadeBase, slaExpedicao, CAUSA, CAUSA_POR_MOTIVO } from "../src/config.js";
 import { VERSAO, ARQUIVOS } from "../src/versao.js";
 
 const require = createRequire(import.meta.url);
@@ -438,6 +438,62 @@ check("pacote devolvido ao galpão não fica no nome de ninguém",
   devolvido.packages[0].motoristaAtual, null);
 check("quem devolveu ao galpão sai da cobrança", devolvido.byDriver.length, 0);
 
+// a causa da última ocorrência decide a ORDEM da cobrança
+check("endereço incorreto vira causa de endereço",
+  CAUSA_POR_MOTIVO[normalize("Endereço incorreto")], CAUSA.ENDERECO);
+check("mudança de endereço também", CAUSA_POR_MOTIVO[normalize("Destinatário mudou de endereço")], CAUSA.ENDERECO);
+check("erro de triagem é fora da área",
+  CAUSA_POR_MOTIVO[normalize("Erro de triagem")], CAUSA.FORA_DA_AREA);
+check("ausência tem causa própria",
+  CAUSA_POR_MOTIVO[normalize("Ausência do destinatário")], CAUSA.AUSENCIA);
+
+// monta um pacote que saiu, registrou endereço incorreto e saiu de novo
+const evc = (ts, fact, courier, rawType, label, problemType) => ({
+  id: `CAUSA|${ts}|${fact}`, pkgId: "222222222222222",
+  ts, tsISO: new Date(ts).toISOString(), rawType, fact, stage: STAGE.OUTRO, label,
+  base: "F RVD - GO", scanner: "F RVD - CONFERENTE", courier,
+  destCity: "Rio Verde", problemType: problemType ?? null,
+});
+const B0 = agora - 30 * 3600000;
+const comEndereco = buildPackages([
+  evc(B0, FACT.RECEBIDO_BASE, null, "bipe de recebimento", "Recebido na base final"),
+  evc(B0 + 3600000, FACT.DESPACHO, "F RVD - MOTORISTA C", "bipe de saída para entrega", "Saiu para entrega"),
+  evc(B0 + 6 * 3600000, FACT.OCORRENCIA, "F RVD - MOTORISTA C", "bipe de pacote problemático", "Ocorrência registrada", "Endereço incorreto"),
+  evc(B0 + 26 * 3600000, FACT.DESPACHO, "F RVD - MOTORISTA C", "bipe de saída para entrega", "Saiu para entrega"),
+], { now: agora });
+const pc = comEndereco.packages[0];
+check("a causa vem da última ocorrência", pc.causa, CAUSA.ENDERECO);
+check("o motivo do JMS é preservado", pc.motivoAtual, "Endereço incorreto");
+
+const msgCausa = mensagemCobranca(comEndereco.byDriver[0], {}, new Date(2026, 7, 8, 9, 0));
+check("a cobrança para de mandar entregar este", msgCausa.includes("entregue HOJE"), false);
+check("a cobrança manda não sair com o mesmo endereço",
+  msgCausa.includes("Não saia com ele de novo no mesmo endereço"), true);
+check("a cobrança manda tentar contato", msgCausa.includes("Tente contato com o cliente"), true);
+check("a cobrança manda devolver hoje se não falar",
+  msgCausa.includes("devolva ao galpão HOJE"), true);
+check("o motivo aparece na linha do pacote", msgCausa.includes("Endereço incorreto"), true);
+
+// fora da área: nem tenta entregar
+const foraDaArea = buildPackages([
+  evc(B0, FACT.RECEBIDO_BASE, null, "bipe de recebimento", "Recebido na base final"),
+  evc(B0 + 3600000, FACT.DESPACHO, "F RVD - MOTORISTA C", "bipe de saída para entrega", "Saiu para entrega"),
+  evc(B0 + 6 * 3600000, FACT.OCORRENCIA, "F RVD - MOTORISTA C", "bipe de pacote problemático", "Ocorrência registrada", "Erro de triagem"),
+  evc(B0 + 26 * 3600000, FACT.DESPACHO, "F RVD - MOTORISTA C", "bipe de saída para entrega", "Saiu para entrega"),
+], { now: agora });
+const msgFora = mensagemCobranca(foraDaArea.byDriver[0], {}, new Date(2026, 7, 8, 9, 0));
+check("fora da área não pede entrega", msgFora.includes("Não tente entregar"), true);
+check("fora da área pede devolução", msgFora.includes("voltar para a malha"), true);
+
+// pacote sem ocorrência continua recebendo a ordem normal de entregar
+const semCausa = buildPackages([
+  evc(B0, FACT.RECEBIDO_BASE, null, "bipe de recebimento", "Recebido na base final"),
+  evc(B0 + 3600000, FACT.DESPACHO, "F RVD - MOTORISTA C", "bipe de saída para entrega", "Saiu para entrega"),
+], { now: agora });
+check("sem ocorrência não há causa", semCausa.packages[0].causa, null);
+check("sem ocorrência a ordem continua sendo entregar",
+  mensagemCobranca(semCausa.byDriver[0], {}, new Date(2026, 7, 8, 9, 0)).includes("entregue HOJE"), true);
+
 // o prazo de expedição depende do destino: cidade base sai na rota do dia,
 // interior espera a viagem daquela cidade
 check("a cidade base é reconhecida", ehCidadeBase("Rio Verde"), true);
@@ -505,10 +561,13 @@ const tarde = new Date(2026, 7, 6, 16, 30);
 check("antes das 14h cobra para hoje", prazoDaCobranca(manha).antesDoCorte, true);
 check("depois das 14h cobra para amanhã", prazoDaCobranca(tarde).antesDoCorte, false);
 
-const alvoCobranca = byDriver.find((d) => d.abertos.length) ?? byDriver[0];
+// precisa ser alguém com ao menos um pacote SEM ocorrência registrada: só esses
+// recebem a ordem de entregar. Quem já reportou endereço incorreto recebe outra.
+const alvoCobranca = byDriver.find((d) => d.abertos.some((x) => !x.pacote.causa)) ?? byDriver[0];
 const msgManha = mensagemCobranca(alvoCobranca, {}, manha);
 const msgTarde = mensagemCobranca(alvoCobranca, {}, tarde);
-check("mensagem da manhã exige entrega hoje", msgManha.includes("entregues HOJE"), true);
+// regex porque o texto flexiona: "Precisa ser entregue" / "Precisam ser entregues"
+check("mensagem da manhã exige entrega hoje", /entregues? HOJE/.test(msgManha), true);
 check("mensagem da manhã não fala de amanhã", msgManha.includes("AMANHÃ"), false);
 // depois das 14h a ordem continua sendo tentar hoje — a manhã seguinte é o
 // plano B para o que não couber mais no dia, não uma dispensa do dia

@@ -277,6 +277,55 @@ export const SITUACAO_META = {
   [SITUACAO.EM_TRANSITO]:             { label: "Em trânsito",              acao: "Monitorar",         peso: 20 },
 };
 
+// ---------------------------------------------------------------------------
+// A CAUSA DA OCORRÊNCIA — e a ordem que ela exige
+//
+// O sistema tinha uma resposta só para tudo: "entregue hoje". Só que num pacote
+// com endereço incorreto o motorista pode ir cinco vezes que não vai achar, e
+// cada volta custa mais 24h. Foi assim que a média chegou a 2,1 despachos por
+// pacote: ninguém nunca disse a ele para PARAR de tentar.
+//
+// Na amostra real de 08/08/2026, das 50 ocorrências registradas: 24 eram de
+// endereço (incorreto, mudou, impossível chegar) e 10 de erro de triagem —
+// pacote de cidade que a base não atende, que nem deveria ser tentado.
+// ---------------------------------------------------------------------------
+export const CAUSA = {
+  ENDERECO:     "ENDERECO",
+  FORA_DA_AREA: "FORA_DA_AREA",
+  AUSENCIA:     "AUSENCIA",
+  OUTRA:        "OUTRA",
+};
+
+// `Tipo problemático` do JMS → causa. A chave é o texto normalizado.
+export const CAUSA_POR_MOTIVO = {
+  "endereco incorreto":                          CAUSA.ENDERECO,
+  "destinatario mudou de endereco":              CAUSA.ENDERECO,
+  "impossibilidade de chegar no endereco informado": CAUSA.ENDERECO,
+  "erro de triagem":                             CAUSA.FORA_DA_AREA,
+  "envio errado":                                CAUSA.FORA_DA_AREA,
+  "ausencia do destinatario":                    CAUSA.AUSENCIA,
+};
+
+export const CAUSA_META = {
+  [CAUSA.ENDERECO]: {
+    label: "Endereço com problema",
+    // O que a operação definiu: tentar contato e, não conseguindo, devolver.
+    // Sair de novo com o mesmo endereço errado é o que precisa parar.
+    ordem: "Não saia com ele de novo no mesmo endereço. Tente contato com o cliente pelo aplicativo e, se não conseguir falar, devolva ao galpão HOJE.",
+    resumo: "contato ou devolução hoje",
+  },
+  [CAUSA.FORA_DA_AREA]: {
+    label: "Fora da área de entrega",
+    ordem: "Não tente entregar — não é cidade que a gente atende. Devolva ao galpão HOJE para voltar para a malha.",
+    resumo: "devolver, sem tentar",
+  },
+  [CAUSA.AUSENCIA]: {
+    label: "Cliente ausente",
+    ordem: "Combine um horário com o cliente pelo aplicativo antes de ir de novo. Sem horário combinado, devolva ao galpão HOJE.",
+    resumo: "combinar horário",
+  },
+};
+
 export const FLAG = {
   TICKET_CLIENTE:       "TICKET_CLIENTE",
   REBIPE_SEM_TRATATIVA: "REBIPE_SEM_TRATATIVA",

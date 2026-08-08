@@ -6,7 +6,7 @@
 // sabe exatamente o que precisa fazer para sair da lista.
 // ---------------------------------------------------------------------------
 
-import { FLAG, CORTE_ENTREGA_HOJE } from "./config.js";
+import { FLAG, CORTE_ENTREGA_HOJE, CAUSA_META } from "./config.js";
 import { duracao, primeiroNome } from "./ui/format.js";
 
 /**
@@ -26,11 +26,13 @@ function itemPacote(d, enrichment, destacado) {
 
   const endereco = [e?.endereco, e?.bairro].filter(Boolean).join(", ") || e?.cidade || p.destCity;
   const tempo = `com você há ${duracao(d.horasPosse)}${d.estourado ? " (fora do prazo)" : ""}`;
+  // o motivo que ELE mesmo registrou — evita a resposta "qual pacote?"
+  const motivo = p.causa && p.motivoAtual ? ` · ${p.motivoAtual}` : "";
   const ticket = destacado && p.ticketRef ? ` · ticket ${p.ticketRef}` : "";
 
   return endereco
-    ? `${cabeca}\n   ${endereco}\n   ${tempo}${ticket}`
-    : `${cabeca} · ${tempo}${ticket}`;
+    ? `${cabeca}\n   ${endereco}\n   ${tempo}${motivo}${ticket}`
+    : `${cabeca} · ${tempo}${motivo}${ticket}`;
 }
 
 export function saudacao(agora = new Date()) {
@@ -86,18 +88,41 @@ export function mensagemCobranca(m, enrichment = {}, agora = new Date()) {
   l.push(`${saudacao(agora)}, ${primeiroNome(m.driver)}.`);
   l.push("");
 
-  // Não há mais duas listas. TikTok Shop é entrega no mesmo dia: se o pacote
-  // ainda está no circuito, existe um cliente esperando por ele agora — com ou
-  // sem chamado aberto na plataforma. Cobrar em dois tons ensinava o motorista
-  // a tratar a segunda lista como opcional.
-  if (abertos.length) {
-    l.push(abertos.length === 1
+  // O pacote que já tem ocorrência registrada precisa de uma ordem DIFERENTE.
+  // Mandar "entregue hoje" para um endereço incorreto é pedir ao motorista que
+  // bata na mesma porta errada — e cada volta dessas custa mais 24h. Por isso a
+  // mensagem separa por causa: entrega normal primeiro, e depois os que exigem
+  // contato ou devolução, cada um com a sua instrução.
+  const porCausa = new Map();
+  const paraEntregar = [];
+  for (const d of abertos) {
+    const causa = d.pacote.causa;
+    if (!causa) { paraEntregar.push(d); continue; }
+    if (!porCausa.has(causa)) porCausa.set(causa, []);
+    porCausa.get(causa).push(d);
+  }
+
+  if (paraEntregar.length) {
+    l.push(paraEntregar.length === 1
       ? `Está com você 1 pacote da TikTok Shop com o cliente aguardando:`
-      : `Estão com você ${abertos.length} pacotes da TikTok Shop, todos com cliente aguardando:`);
+      : `Estão com você ${paraEntregar.length} pacotes da TikTok Shop, todos com cliente aguardando:`);
     l.push("");
-    for (const d of abertos) l.push(itemPacote(d, enrichment, true));
+    for (const d of paraEntregar) l.push(itemPacote(d, enrichment, true));
     l.push("");
-    l.push(...prazoDaCobranca(agora, { quantidade: abertos.length }).linhas);
+    l.push(...prazoDaCobranca(agora, { quantidade: paraEntregar.length }).linhas);
+    l.push("");
+  }
+
+  for (const [causa, itens] of porCausa) {
+    const meta = CAUSA_META[causa];
+    if (!meta) continue;
+    l.push(itens.length === 1
+      ? `⚠️ *1 pacote já tem ${meta.label.toLowerCase()} registrado:*`
+      : `⚠️ *${itens.length} pacotes já têm ${meta.label.toLowerCase()} registrado:*`);
+    l.push("");
+    for (const d of itens) l.push(itemPacote(d, enrichment, true));
+    l.push("");
+    l.push(meta.ordem);
     l.push("");
   }
 
@@ -150,6 +175,10 @@ export function mensagemFechamentoMotorista(m, enrichment = {}, pacotes = null, 
     const marca = (p.clienteAguardando ?? p.ticketAberto) ? "🔴" : "•";
     l.push(`${marca} ${p.pkgId}${quem}${onde ? ` (${onde})` : ""}`);
     if (p.horasComMotorista != null) l.push(`   com você há ${duracao(p.horasComMotorista)}`);
+    // o que ele já registrou define o que se espera dele, não "entregue"
+    if (p.causa && CAUSA_META[p.causa]) {
+      l.push(`   ${p.motivoAtual} → ${CAUSA_META[p.causa].resumo}`);
+    }
   }
 
   l.push("");

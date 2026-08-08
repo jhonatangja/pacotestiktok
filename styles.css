@@ -803,3 +803,12 @@ p { margin: 0; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+/* A ordem que a ocorrência exige, no cartão. Fica acima das flags porque não é
+   um alerta histórico: é o que precisa ser feito com este pacote agora. */
+.pkg__ordem {
+  font-size: 12.5px; line-height: 1.45; color: var(--ocorrencia);
+  background: var(--ocorrencia-bg); border: 1px solid var(--ocorrencia-line);
+  border-radius: 9px; padding: 7px 10px;
+}
+.pkg__ordem b { font-weight: 650; }

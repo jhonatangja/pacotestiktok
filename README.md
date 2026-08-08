@@ -83,6 +83,26 @@ conta, mas **só do pacote que a pessoa ainda segura**: é o que dá para cobrar
 mesma conversa. O desempenho passado de quem não tem nada em aberto é assunto da aba
 Motoristas, não de uma fila cujo título é "cobrar agora".
 
+### A ocorrência muda a ordem
+
+O sistema tinha uma resposta só para tudo: *"entregue hoje"*. Num pacote com **endereço
+incorreto** isso é pedir ao motorista que bata na mesma porta errada — e cada volta custa
+mais 24h. Foi assim que a operação chegou a **2,1 despachos por pacote**: ninguém nunca
+disse a ele para *parar* de tentar.
+
+A mensagem agora separa por causa da última ocorrência (`CAUSA_POR_MOTIVO` em
+`src/config.js`):
+
+| Causa | O que a cobrança passa a exigir |
+|---|---|
+| **Endereço** (incorreto, mudou, impossível chegar) | não sair de novo com o mesmo endereço; tentar contato pelo app e, sem conseguir, **devolver hoje** |
+| **Fora da área** (erro de triagem, envio errado) | **não tentar entregar** — devolver hoje para voltar à malha |
+| **Cliente ausente** | combinar horário antes de ir de novo; sem horário, devolver hoje |
+| sem ocorrência | entregar, com o prazo do horário |
+
+Na amostra de 08/08/2026, das 50 ocorrências: **24 eram de endereço** e **10 de erro de
+triagem** — ou seja, a ordem estava errada para dois terços dos casos problemáticos.
+
 **Todo pacote no circuito é cobrado como cliente aguardando.** TikTok Shop é entrega no
 mesmo dia: se o pacote ainda não teve desfecho, alguém está esperando por ele agora — com
 ou sem chamado aberto na plataforma. A mensagem deixou de ter duas listas (uma "urgente" e

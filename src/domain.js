@@ -12,9 +12,9 @@
 import {
   FACT, FECHAMENTOS, SLA_PADRAO, PREFIXO_MOTORISTA_PADRAO, ehBasePropria,
   SITUACAO, SITUACAO_META, FLAG, FLAG_META, CLIENTE_AGUARDANDO_SEMPRE,
-  responsavelDaConta, ehCidadeBase, slaExpedicao,
+  responsavelDaConta, ehCidadeBase, slaExpedicao, CAUSA_POR_MOTIVO, CAUSA,
 } from "./config.js";
-import { sortEvents, stripDriverPrefix } from "./ingest.js";
+import { sortEvents, stripDriverPrefix, normalize as normalizarTexto } from "./ingest.js";
 import { STATUS, DESFECHO } from "./tratativa.js";
 
 const H = 3600000;
@@ -220,6 +220,18 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
   const naCidadeBase = ehCidadeBase(ctx.destCity);
   const slaExpedicaoHoras = slaExpedicao(ctx.destCity, sla);
 
+  // A ÚLTIMA ocorrência registrada é o que diz qual é a ordem certa agora.
+  // Não a primeira, e não a soma delas: se o motorista já reportou endereço
+  // incorreto, mandar "entregue hoje" é pedir que ele bata na mesma porta.
+  const ocorrencias = timeline.filter((e) => e.fact === FACT.OCORRENCIA);
+  const ultimaOcorrencia = ocorrencias[ocorrencias.length - 1] ?? null;
+  const motivoAtual = ultimaOcorrencia?.problemType ?? null;
+  const causa = motivoAtual
+    ? (CAUSA_POR_MOTIVO[normalizarTexto(motivoAtual)] ?? CAUSA.OUTRA)
+    : null;
+  // Só vale enquanto o caso está aberto — resolvido não tem ordem pendente.
+  const causaAtiva = !resolvido && causa && causa !== CAUSA.OUTRA ? causa : null;
+
   // --- flags (acumuláveis)
   const flags = [];
 
@@ -302,6 +314,11 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
     // Qual das nossas bases responde por este pacote agora.
     baseResponsavel,
     transferidoEntreBases,
+
+    // A causa da última ocorrência — é ela que decide a ordem da cobrança.
+    causa: causaAtiva,
+    motivoAtual,
+    ocorreuEm: ultimaOcorrencia?.ts ?? null,
 
     // O prazo de expedição que vale para este destino, e se ele já estourou.
     naCidadeBase,

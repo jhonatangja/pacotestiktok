@@ -5,7 +5,7 @@
 // com quem está e há quanto tempo. Nada além disso — o resto é o drawer.
 // ---------------------------------------------------------------------------
 
-import { SITUACAO, BASE_OPERACAO, apelidoDaBase } from "../config.js";
+import { SITUACAO, BASE_OPERACAO, apelidoDaBase, CAUSA_META } from "../config.js";
 import {
   escapeHtml, TOM, tomVars, duracao, dataCurta, iniciais, flagLabel, flagHint, flagClasse,
 } from "./format.js";
@@ -85,6 +85,12 @@ export function cardPacote(p) {
       ${idade(p)}
       ${p.totalDespachos > 1 ? `<span><b>${p.totalDespachos}</b> despachos</span>` : ""}
     </div>
+
+    ${p.causa && CAUSA_META[p.causa] ? `
+    <div class="pkg__ordem" title="${escapeHtml(CAUSA_META[p.causa].ordem)}">
+      <b>${escapeHtml(p.motivoAtual ?? CAUSA_META[p.causa].label)}</b>
+      → ${escapeHtml(CAUSA_META[p.causa].resumo)}
+    </div>` : ""}
 
     ${p.flags.length ? `
     <div class="flags">
