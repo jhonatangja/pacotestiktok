@@ -121,6 +121,23 @@ A troca não muda a interface: `src/repo.js` é a única camada de dados, e o mo
 (`src/repo-supabase.js`) implementa a mesma interface. Se a nuvem cair, o sistema volta sozinho
 para a base local da máquina.
 
+## Publicação e versão
+
+O GitHub Pages serve os arquivos com `Cache-Control: max-age=600`. Sem tratamento, quem já
+usou o sistema continuaria rodando o JavaScript antigo por até 10 minutos depois de uma
+publicação — vendo a tela velha e concluindo que a mudança não funcionou.
+
+Como o projeto não tem build, não dá para versionar a URL dos módulos. A saída é
+`fetch(url, { cache: "reload" })`, que ignora o cache **e grava a resposta por cima da
+entrada antiga**: no boot o app compara a sua versão com a publicada, renova os arquivos e
+recarrega uma vez (com trava de sessão, para uma publicação pela metade não virar laço).
+
+A versão em execução aparece no canto superior direito — serve para conferir, ao telefone
+com alguém, se as duas pessoas estão vendo a mesma coisa.
+
+> **Ao publicar, suba o número em `src/versao.js`.** O validador confere que todo módulo de
+> `src/` está na lista de arquivos renovados; um módulo esquecido lá continuaria velho.
+
 ## Como rodar
 
 **Duplo clique em `abrir.bat`.** Ele sobe um servidor local e abre o navegador.
