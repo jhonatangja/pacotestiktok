@@ -14,7 +14,9 @@ import { telefoneValido, formatarTelefone } from "../contatos.js";
 import { listaVazia } from "./cards.js";
 
 export function renderCobranca(el, byDriver, selecionado, cobrancas, enrichment = {}, contatos = {}) {
-  const comAlgo = byDriver.filter((m) => m.totalAbertos || m.totalRebipes || m.ocorrenciasLentas.length);
+  // Só quem está com pacote na mão agora. Quem já passou adiante não é cobrável
+  // — e uma fila com nomes sem pendência faz perder tempo procurando quem falta.
+  const comAlgo = byDriver.filter((m) => m.totalAbertos > 0);
 
   if (!comAlgo.length) {
     el.innerHTML = listaVazia("Nenhum motorista com pacote em aberto. Nada a cobrar agora.", "✅");

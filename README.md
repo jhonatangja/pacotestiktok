@@ -52,6 +52,16 @@ A data de coleta continua visível no detalhe do pacote, como contexto.
 
 ## A cobrança do motorista
 
+**A fila lista só quem está com pacote na mão agora.** Um despacho encerrado não é dívida
+de ninguém: se o pacote saiu de novo com outra pessoa, voltou ao galpão ou foi entregue, a
+responsabilidade mudou de mãos, e continuar listando quem já passou o pacote adiante faz a
+operação cobrar a pessoa errada.
+
+O histórico não some — muda de lugar. Rebipe e ocorrência tardia continuam pesando na
+conta, mas **só do pacote que a pessoa ainda segura**: é o que dá para cobrar hoje, na
+mesma conversa. O desempenho passado de quem não tem nada em aberto é assunto da aba
+Motoristas, não de uma fila cujo título é "cobrar agora".
+
 **Todo pacote no circuito é cobrado como cliente aguardando.** TikTok Shop é entrega no
 mesmo dia: se o pacote ainda não teve desfecho, alguém está esperando por ele agora — com
 ou sem chamado aberto na plataforma. A mensagem deixou de ter duas listas (uma "urgente" e
@@ -190,7 +200,7 @@ node tools/validate.js
    duplica nada e nunca apaga tratativas.
 2. **Painel de Ação** — as pendências agrupadas pela ação que exigem.
 3. **Cobrança** — por motorista, com mensagem de WhatsApp pronta citando as três saídas
-   e o prazo do horário (ver abaixo).
+   e o prazo do horário (ver abaixo). **Só aparece quem está com pacote na mão agora.**
    Cadastre o WhatsApp do motorista uma vez e o botão **📲 Cobrar no WhatsApp** abre a
    conversa já no contato certo, com a mensagem montada — um clique por cobrança.
 4. **Galpão** — cada pacote retornado vira tarefa com responsável, prazo e registros.

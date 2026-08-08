@@ -360,6 +360,47 @@ check("o assistente entra no cadastro de responsáveis",
 check("a conta do JMS some do cadastro",
   listarMotoristas(comConta.packages, comConta.byDriver, {}).some((m) => m.driver === contaJms), false);
 
+// a fila de cobrança lista só quem está com o pacote AGORA
+check("ninguém sem pacote aberto entra na cobrança",
+  byDriver.every((m) => m.totalAbertos > 0), true);
+check("todo pacote com motorista tem um responsável na fila",
+  byDriver.reduce((n, m) => n + m.totalAbertos, 0),
+  packages.filter((p) => !p.resolvido && p.motoristaAtual).length);
+
+// cenário montado à mão: o mesmo pacote passando de mão em mão
+const ev = (ts, fact, courier, rawType, label) => ({
+  id: `COBRANCA|${ts}|${fact}|${courier ?? ""}`, pkgId: "111111111111111",
+  ts, tsISO: new Date(ts).toISOString(), rawType, fact, stage: STAGE.OUTRO, label,
+  base: "F RVD - GO", scanner: "F RVD - CONFERENTE", courier,
+});
+const T0 = agora - 40 * 3600000;
+const recebeu = ev(T0, FACT.RECEBIDO_BASE, null, "bipe de recebimento", "Recebido na base final");
+const saiuComA = ev(T0 + 3600000, FACT.DESPACHO, "F RVD - MOTORISTA A", "bipe de saída para entrega", "Saiu para entrega");
+const saiuComB = ev(T0 + 20 * 3600000, FACT.DESPACHO, "F RVD - MOTORISTA B", "bipe de saída para entrega", "Saiu para entrega");
+const saiuComAdeNovo = ev(T0 + 20 * 3600000, FACT.DESPACHO, "F RVD - MOTORISTA A", "bipe de saída para entrega", "Saiu para entrega");
+const voltouAoGalpao = ev(T0 + 20 * 3600000, FACT.GALPAO, null, "Entrada no galpão de pacote não expedido", "Retornou ao galpão");
+
+// A pega, depois B pega: a dívida é só de B
+const troca = buildPackages([recebeu, saiuComA, saiuComB], { now: agora });
+check("o pacote fica com quem o pegou por último", troca.packages[0].motoristaAtual, "MOTORISTA B");
+check("quem passou o pacote adiante sai da cobrança",
+  troca.byDriver.some((m) => m.driver === "MOTORISTA A"), false);
+check("quem está com o pacote entra na cobrança",
+  troca.byDriver.find((m) => m.driver === "MOTORISTA B")?.totalAbertos, 1);
+check("o rebipe do anterior não é cobrado de quem pegou depois",
+  troca.byDriver.find((m) => m.driver === "MOTORISTA B")?.totalRebipes, 0);
+
+// A pega duas vezes sem prestar contas: aí o rebipe é dele mesmo
+const mesmo = buildPackages([recebeu, saiuComA, saiuComAdeNovo], { now: agora });
+check("rebipe do próprio motorista continua pesando na conta dele",
+  mesmo.byDriver.find((m) => m.driver === "MOTORISTA A")?.totalRebipes, 1);
+
+// devolveu ao galpão: não está com ninguém, não há a quem cobrar
+const devolvido = buildPackages([recebeu, saiuComA, voltouAoGalpao], { now: agora });
+check("pacote devolvido ao galpão não fica no nome de ninguém",
+  devolvido.packages[0].motoristaAtual, null);
+check("quem devolveu ao galpão sai da cobrança", devolvido.byDriver.length, 0);
+
 // duas bases nossas em Rio Verde: trocar entre elas não encerra nada
 check("a base principal é nossa", ehBasePropria("F RVD - GO"), true);
 check("a segunda base também é nossa", ehBasePropria("F RVD 02-GO"), true);

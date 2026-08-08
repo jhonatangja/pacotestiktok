@@ -23,7 +23,7 @@
 // número daqui a cada publicação.
 // ---------------------------------------------------------------------------
 
-export const VERSAO = "2026-08-08.6";
+export const VERSAO = "2026-08-08.7";
 
 // Ancorada no início da linha: um exemplo dentro de um comentário não pode ser
 // confundido com a constante, ou o app se acharia velho para sempre.

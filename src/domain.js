@@ -313,8 +313,17 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
 // ---------------------------------------------------------------------------
 
 /**
- * Agrupa a dívida por motorista. Um pacote com dois despachos de motoristas
- * diferentes aparece na conta dos dois — cada um responde pelo seu período.
+ * A fila de cobrança: quem está com pacote na mão AGORA.
+ *
+ * Um despacho encerrado não é dívida de ninguém. Se o pacote saiu de novo com
+ * outra pessoa, ou voltou ao galpão, ou foi entregue, a responsabilidade mudou
+ * de mãos — e continuar listando quem já passou o pacote adiante faz a operação
+ * cobrar a pessoa errada.
+ *
+ * O histórico não some, muda de lugar: rebipe e ocorrência tardia continuam
+ * pesando, mas só do pacote que a pessoa ainda está segurando. O desempenho
+ * passado de quem não tem nada em aberto é assunto da aba Motoristas, não de
+ * uma fila cujo título é "cobrar agora".
  */
 export function agruparPorMotorista(packages, now) {
   const mapa = new Map();
@@ -329,16 +338,25 @@ export function agruparPorMotorista(packages, now) {
   };
 
   for (const p of packages) {
-    // caso encerrado pelo operador não gera cobrança
+    // caso encerrado (entregue, devolvido, recebido fora) não gera cobrança
     if (p.resolvido) continue;
+
+    // Sem despacho aberto o pacote não está com ninguém: está no galpão, parado
+    // na base ou em ocorrência sem desfecho. É pendência da operação, não dívida
+    // de um motorista — e cobrar quem já devolveu é o erro que isto evita.
+    const atual = p.despachos.find((d) => d.aberto);
+    if (!atual) continue;
+
+    const s = slot(atual.driver);
+    s.pacotes.add(p.pkgId);
+    s.abertos.push({ ...atual, pacote: p });
+    s.horasMaisAntiga = Math.max(s.horasMaisAntiga, atual.horasPosse ?? 0);
+    if (p.ticketAberto) s.tickets.push({ ...atual, pacote: p });
+
+    // O histórico só pesa se for do pacote que a pessoa ainda está segurando:
+    // é o que dá para cobrar hoje, na mesma conversa.
     for (const d of p.despachos) {
-      const s = slot(d.driver);
-      s.pacotes.add(p.pkgId);
-      if (d.aberto) {
-        s.abertos.push({ ...d, pacote: p });
-        s.horasMaisAntiga = Math.max(s.horasMaisAntiga, d.horasPosse ?? 0);
-        if (p.ticketAberto) s.tickets.push({ ...d, pacote: p });
-      }
+      if (d === atual || d.driver !== atual.driver) continue;
       if (d.anomalia === FLAG.REBIPE_SEM_TRATATIVA) s.rebipes.push({ ...d, pacote: p });
       if (d.closedBy === FACT.OCORRENCIA && d.horasPosse > SLA_PADRAO.registroOcorrenciaHoras) {
         s.ocorrenciasLentas.push({ ...d, pacote: p });

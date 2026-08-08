@@ -888,7 +888,8 @@ async function salvarContato(m) {
 }
 
 function motoristaAtual() {
-  const comAlgo = state.byDriver.filter((m) => m.totalAbertos || m.totalRebipes || m.ocorrenciasLentas.length);
+  // mesma regra da tela: só quem está com pacote agora
+  const comAlgo = state.byDriver.filter((m) => m.totalAbertos > 0);
   return comAlgo.find((m) => m.driver === state.motorista) ?? comAlgo[0] ?? null;
 }
 
