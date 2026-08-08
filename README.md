@@ -32,10 +32,36 @@ e por isso não entra nem no cartão nem no cálculo de prioridade: um pacote qu
 
 A data de coleta continua visível no detalhe do pacote, como contexto.
 
+## A cobrança do motorista
+
+**Todo pacote no circuito é cobrado como cliente aguardando.** TikTok Shop é entrega no
+mesmo dia: se o pacote ainda não teve desfecho, alguém está esperando por ele agora — com
+ou sem chamado aberto na plataforma. A mensagem deixou de ter duas listas (uma "urgente" e
+outra "sem baixa"), porque a segunda lista ensinava o motorista a tratá-la como opcional.
+
+**O prazo exigido muda sozinho às 14h** (`CORTE_ENTREGA_HOJE` em `src/config.js`):
+
+| Horário da cobrança | O que a mensagem exige |
+|---|---|
+| Antes das 14h | entrega **hoje**; se não der, a problemática registrada **com a evidência da tentativa de contato** |
+| A partir das 14h | entrega **amanhã pela manhã, na primeira rota**; a problemática registrada ainda hoje, com a evidência |
+
+Depois das 14h não cabe mais uma rota. Exigir entrega no mesmo dia àquela altura só produz
+um "sim" que ninguém cumpre — e uma promessa quebrada não cobra ninguém.
+
+O que **não** muda com o horário é a evidência: sem o print da ligação ou da conversa, a
+problemática registrada no sistema não sustenta nada quando o cliente reclamar. A tela de
+cobrança avisa qual dos dois prazos a mensagem vai levar **antes** de você clicar.
+
 ## Ticket do cliente
 
 Quando o cliente abre reclamação na TikTok Shop, marque o ticket no pacote. É o único
 sinal do sistema que não vem de planilha nenhuma — vem da plataforma, e é marcado à mão.
+
+Como a cobrança já trata **todos** os pacotes do circuito como cliente aguardando, o ticket
+marcado passou a significar uma coisa mais estreita e mais útil: **existe um chamado aberto,
+com protocolo**. É esse recorte que ainda sobe o pacote para o topo do painel e ganha o
+chip vermelho — uma marca que todo mundo tem não ordena nada.
 
 Duas formas de lançar:
 
@@ -121,7 +147,8 @@ node tools/validate.js
    de pedido") do JMS. Cada importação soma ao histórico; reenviar o mesmo arquivo não
    duplica nada e nunca apaga tratativas.
 2. **Painel de Ação** — as pendências agrupadas pela ação que exigem.
-3. **Cobrança** — por motorista, com mensagem de WhatsApp pronta citando as três saídas.
+3. **Cobrança** — por motorista, com mensagem de WhatsApp pronta citando as três saídas
+   e o prazo do horário (ver abaixo).
    Cadastre o WhatsApp do motorista uma vez e o botão **📲 Cobrar no WhatsApp** abre a
    conversa já no contato certo, com a mensagem montada — um clique por cobrança.
 4. **Galpão** — cada pacote retornado vira tarefa com responsável, prazo e registros.

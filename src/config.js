@@ -143,6 +143,16 @@ export const SLA_PADRAO = {
 
 export const PREFIXO_MOTORISTA_PADRAO = "F RVD -";
 
+// TikTok Shop é entrega no mesmo dia: todo pacote que ainda está no circuito
+// tem um cliente esperando AGORA. Por isso a cobrança não separa mais "com
+// reclamação" de "sem reclamação" — todos são cobrados como cliente aguardando.
+export const CLIENTE_AGUARDANDO_SEMPRE = true;
+
+// Hora de corte da cobrança. Antes disso o pacote é cobrado para HOJE; a partir
+// dela, para a primeira rota de amanhã — exigir entrega às 17h só produz uma
+// promessa que ninguém cumpre, e uma promessa quebrada não cobra ninguém.
+export const CORTE_ENTREGA_HOJE = 14;
+
 // A base que esta operação responde. Serve para reconhecer quando um pacote
 // foi recebido POR OUTRA base — momento em que ele sai da sua responsabilidade.
 export const BASE_OPERACAO = "F RVD - GO";

@@ -16,6 +16,7 @@ import { buildEvents, dedupeEvents, mergeEvents } from "../src/ingest.js";
 import { buildPackages, codigosEmAberto } from "../src/domain.js";
 import { createMemoryRepo } from "../src/repo.js";
 import { separarCodigos } from "../src/tratativa.js";
+import { mensagemCobranca, prazoDaCobranca } from "../src/charge.js";
 import { aguardandoImportacao } from "../src/aguardando.js";
 import { normalizarTelefone, telefoneValido, linkWhatsApp } from "../src/contatos.js";
 import { pacotesDoGalpao } from "../src/ui/galpao.js";
@@ -236,6 +237,33 @@ check("separa códigos de qualquer colagem", separarCodigos(colagem).length, 3);
 check("colagem não duplica código repetido",
   separarCodigos(colagem).filter((c) => c === "999881527748083").length, 1);
 check("colagem vazia não vira código", separarCodigos("  \n , ; \n").length, 0);
+
+// cobrança: todo pacote no circuito é cliente esperando, e o prazo exigido
+// muda sozinho no corte das 14h
+const noCircuitoAgora = noCircuito(packages);
+check("todo pacote no circuito é cliente aguardando",
+  noCircuitoAgora.every((p) => p.clienteAguardando), true);
+check("pacote em trânsito não é cliente aguardando",
+  packages.filter((p) => p.situacao === SITUACAO.EM_TRANSITO).every((p) => !p.clienteAguardando), true);
+
+const manha = new Date(2026, 7, 6, 9, 30);
+const tarde = new Date(2026, 7, 6, 16, 30);
+check("antes das 14h cobra para hoje", prazoDaCobranca(manha).antesDoCorte, true);
+check("depois das 14h cobra para amanhã", prazoDaCobranca(tarde).antesDoCorte, false);
+
+const alvoCobranca = byDriver.find((d) => d.abertos.length) ?? byDriver[0];
+const msgManha = mensagemCobranca(alvoCobranca, {}, manha);
+const msgTarde = mensagemCobranca(alvoCobranca, {}, tarde);
+check("mensagem da manhã exige entrega hoje", msgManha.includes("entregues HOJE"), true);
+check("mensagem da manhã não fala de amanhã", msgManha.includes("AMANHÃ"), false);
+check("mensagem da tarde exige a manhã seguinte", msgTarde.includes("AMANHÃ PELA MANHÃ"), true);
+check("mensagem da tarde não exige entrega hoje", msgTarde.includes("entregues HOJE"), false);
+// a evidência é exigida nos dois horários — é ela que sustenta a problemática
+check("evidência exigida de manhã", msgManha.includes("evidência da tentativa de contato"), true);
+check("evidência exigida à tarde", msgTarde.includes("evidência da tentativa de contato"), true);
+// a cobrança deixou de ter duas listas: nada é apresentado como "sem baixa"
+check("cobrança não separa mais em duas listas", msgManha.includes("ainda sem baixa"), false);
+check("cobrança diz que o cliente aguarda", msgManha.includes("cliente aguardando"), true);
 
 // pacotes lançados à mão, antes de existir bipe no JMS
 const codigoNovo = "999999999999999";

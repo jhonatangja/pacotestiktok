@@ -353,6 +353,15 @@ p { margin: 0; }
   resize: none; overflow-y: auto; line-height: 1.45;
   font-family: inherit; font-variant-numeric: tabular-nums;
 }
+/* O operador precisa saber, ANTES de clicar, qual prazo a mensagem vai exigir —
+   a cobrança muda de tom sozinha às 14h e ninguém deve descobrir isso depois. */
+.charge__prazo {
+  margin: 0 0 12px; padding: 9px 12px; border-radius: 10px;
+  font-size: 12.5px; line-height: 1.5; color: var(--ink-2);
+  background: var(--galpao-bg); border: 1px solid var(--galpao-line);
+}
+.charge__prazo b { color: var(--ink); font-weight: 650; }
+
 .quickbar__sub { margin: 9px 0 0; font-size: 12.5px; color: var(--ink-3); line-height: 1.5; }
 .quickbar__sub b { color: var(--ink-2); font-weight: 650; }
 .quickbar__out { margin-top: 11px; font-size: 13px; animation: rise .25s var(--ease) both; }

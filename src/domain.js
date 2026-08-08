@@ -11,7 +11,7 @@
 
 import {
   FACT, FECHAMENTOS, SLA_PADRAO, PREFIXO_MOTORISTA_PADRAO, BASE_OPERACAO,
-  SITUACAO, SITUACAO_META, FLAG, FLAG_META,
+  SITUACAO, SITUACAO_META, FLAG, FLAG_META, CLIENTE_AGUARDANDO_SEMPRE,
 } from "./config.js";
 import { sortEvents, stripDriverPrefix } from "./ingest.js";
 import { STATUS } from "./tratativa.js";
@@ -172,7 +172,18 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
 
   // --- flags (acumuláveis)
   const flags = [];
+
+  // Duas coisas diferentes que a cobrança precisa distinguir:
+  //
+  //  · `ticketAberto` — alguém marcou à mão que o cliente abriu chamado na
+  //    plataforma. É o que sobe o pacote para o topo do painel e ganha chip.
+  //  · `clienteAguardando` — o pacote está no circuito. Como TikTok é entrega
+  //    no mesmo dia, isso já significa cliente esperando, e a cobrança trata
+  //    TODOS assim. Não vira flag nem peso: uma marca que todo mundo tem não
+  //    ordena nada, só polui o cartão.
   const ticketAberto = !!tratativa?.ticket?.aberto && !resolvido;
+  const clienteAguardando = CLIENTE_AGUARDANDO_SEMPRE
+    && !resolvido && situacao !== SITUACAO.EM_TRANSITO;
   if (ticketAberto) flags.push(FLAG.TICKET_CLIENTE);
   if (movimentoAposResolver) flags.push(FLAG.MOVIMENTO_APOS_RESOLVIDA);
 
@@ -218,6 +229,7 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
     prioridade,
 
     ticketAberto,
+    clienteAguardando,
     ticketRef: tratativa?.ticket?.ref || null,
     resolvido,
     desfecho,

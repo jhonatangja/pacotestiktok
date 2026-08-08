@@ -7,7 +7,8 @@
 // feita duas vezes — ou de ser esquecida.
 // ---------------------------------------------------------------------------
 
-import { mensagemCobranca, resumoMotorista, atrasados } from "../charge.js";
+import { mensagemCobranca, resumoMotorista, atrasados, prazoDaCobranca } from "../charge.js";
+import { CORTE_ENTREGA_HOJE } from "../config.js";
 import { escapeHtml, tomVars, duracao, dataHora, iniciais } from "./format.js";
 import { telefoneValido, formatarTelefone } from "../contatos.js";
 import { listaVazia } from "./cards.js";
@@ -94,6 +95,11 @@ function detalheMotorista(m, cobrancas, enrichment, contatos = {}) {
         : `<p style="color:var(--ink-3);font-size:13.5px">Sem pacotes em aberto.</p>`}
 
       <div class="charge">
+        <p class="charge__prazo">${prazoDaCobranca().antesDoCorte
+          ? `⏰ Antes das ${CORTE_ENTREGA_HOJE}h — a mensagem vai exigir <b>entrega hoje</b>,
+             ou a problemática registrada com a evidência da tentativa de contato.`
+          : `⏰ Depois das ${CORTE_ENTREGA_HOJE}h — a mensagem vai pedir <b>entrega amanhã pela manhã</b>,
+             e a problemática registrada ainda hoje com a evidência.`}</p>
         <div class="charge__actions">
           <button class="btn btn--primary btn--zap" id="btnCobrarZap" ${zapOk ? "" : "disabled"}>
             📲 Cobrar no WhatsApp
