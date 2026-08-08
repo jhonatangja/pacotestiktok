@@ -95,26 +95,18 @@ function renderStats(packages, aguardando) {
 
 function renderGrupos(packages, aguardando = []) {
   const grupos = [];
-  const jaListados = new Set();
 
-  // 1. Ticket do cliente vem antes de tudo: a reclamação já está aberta na
-  //    plataforma, então o prazo interno deixou de importar.
-  const tickets = comTicket(packages);
-  if (tickets.length) {
-    tickets.forEach((p) => jaListados.add(p.pkgId));
-    grupos.push(secao({
-      titulo: "Prioridade máxima — ticket do cliente",
-      dica: "O cliente abriu reclamação na TikTok Shop. Resolver antes de qualquer outra coisa.",
-      tom: "atrasado",
-      pacotes: tickets,
-    }));
-  }
-
-  // 2. Demais pendências, agrupadas pela ação necessária.
+  // Cada pendência aparece UMA vez, no grupo da ação que ela exige.
+  //
+  // O ticket do cliente já teve um grupo próprio no topo, e isso atrapalhava
+  // mais do que ajudava: ele arrancava pacotes de "Tratar no galpão" e de
+  // "Cobrar motorista" e os juntava numa lista só, misturando quem está na base
+  // com quem está na rua — duas ações completamente diferentes. Agora o ticket
+  // é destaque DENTRO do grupo (🔴, primeiro da lista), não um grupo à parte.
   const porAcao = new Map();
   for (const situacao of EXIGE_ACAO) {
     const meta = SITUACAO_META[situacao];
-    const doGrupo = packages.filter((p) => p.situacao === situacao && !jaListados.has(p.pkgId));
+    const doGrupo = packages.filter((p) => p.situacao === situacao);
     if (!doGrupo.length) continue;
 
     if (!porAcao.has(meta.acao)) porAcao.set(meta.acao, { peso: 0, tom: TOM[situacao], pacotes: [] });
@@ -126,11 +118,17 @@ function renderGrupos(packages, aguardando = []) {
 
   const ordenados = [...porAcao.entries()].sort((a, b) => b[1].peso - a[1].peso);
   for (const [acao, g] of ordenados) {
+    const comReclamacao = g.pacotes.filter((p) => p.ticketAberto).length;
     grupos.push(secao({
       titulo: acao,
       dica: DICA[acao] ?? "",
       tom: g.tom,
-      pacotes: g.pacotes.sort((a, b) => b.prioridade - a.prioridade),
+      extra: comReclamacao
+        ? `🔴 ${comReclamacao} com reclamação do cliente`
+        : "",
+      // dentro do grupo, quem tem reclamação aberta vem primeiro
+      pacotes: g.pacotes.sort((a, b) =>
+        (b.ticketAberto === true) - (a.ticketAberto === true) || b.prioridade - a.prioridade),
     }));
   }
 
@@ -174,12 +172,13 @@ function renderGrupos(packages, aguardando = []) {
   return grupos.join("");
 }
 
-function secao({ titulo, dica, tom, pacotes }) {
+function secao({ titulo, dica, tom, pacotes, extra = "" }) {
   return `
     <section class="group" style="${tomVars(tom)}">
       <div class="group__head">
         <h3>${escapeHtml(titulo)}</h3>
         <span class="group__badge">${pacotes.length}</span>
+        ${extra ? `<span class="group__extra">${escapeHtml(extra)}</span>` : ""}
         <span class="group__hint">${escapeHtml(dica)}</span>
       </div>
       <div class="cards">${pacotes.map(cardPacote).join("")}</div>

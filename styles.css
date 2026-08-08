@@ -177,6 +177,12 @@ p { margin: 0; }
   font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 99px;
   background: var(--tone-bg); color: var(--tone); border: 1px solid var(--tone-line);
 }
+/* Quantos daquele grupo têm reclamação aberta — o ticket deixou de ser um grupo
+   à parte e virou destaque dentro da ação a que o pacote pertence. */
+.group__extra {
+  font-size: 11.5px; font-weight: 650; padding: 3px 9px; border-radius: 99px;
+  background: var(--atrasado-bg); color: var(--atrasado); border: 1px solid var(--atrasado-line);
+}
 .group__hint { font-size: 13px; color: var(--ink-3); margin-left: auto; }
 
 /* --------------------------------------------------------------- cards */

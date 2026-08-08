@@ -104,9 +104,15 @@ Um pacote com ticket:
 
 - vira o **primeiro da fila**, num nível acima de tudo (não é peso somado — um pacote
   velho o suficiente acabaria passando na frente se fosse);
-- ganha um grupo próprio no topo do Painel de Ação;
-- sai destacado e em seção separada na mensagem de cobrança, com o número do protocolo;
+- aparece com 🔴 e em primeiro lugar **dentro do grupo da ação a que pertence**;
+- leva o número do protocolo na mensagem de cobrança;
 - puxa o motorista para o topo da fila de cobrança.
+
+O ticket **não** cria um grupo próprio no Painel de Ação. Já criou, e atrapalhava: ele
+arrancava pacotes de "Tratar no galpão" e de "Cobrar motorista" e os juntava numa lista só,
+misturando quem está na base com quem está na rua — duas ações completamente diferentes. O
+painel agrupa sempre pela **ação necessária**; o ticket é destaque dentro do grupo, e o
+cabeçalho mostra quantos daquele grupo têm reclamação aberta.
 
 Marcar a tratativa como **resolvida** encerra o ticket automaticamente.
 
