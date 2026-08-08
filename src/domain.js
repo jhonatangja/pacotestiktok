@@ -12,7 +12,7 @@
 import {
   FACT, FECHAMENTOS, SLA_PADRAO, PREFIXO_MOTORISTA_PADRAO, ehBasePropria,
   SITUACAO, SITUACAO_META, FLAG, FLAG_META, CLIENTE_AGUARDANDO_SEMPRE,
-  responsavelDaConta,
+  responsavelDaConta, ehCidadeBase, slaExpedicao,
 } from "./config.js";
 import { sortEvents, stripDriverPrefix } from "./ingest.js";
 import { STATUS, DESFECHO } from "./tratativa.js";
@@ -213,6 +213,13 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
     ? round1(horas(fimEm - recebidoNaBaseEm))
     : null;
 
+  // O contexto do destino é lido antes das flags porque o prazo de expedição
+  // depende da cidade — pacote da cidade base sai na rota do dia, pacote de
+  // interior espera a viagem daquela cidade.
+  const ctx = timeline.find((e) => e.destCity) ?? {};
+  const naCidadeBase = ehCidadeBase(ctx.destCity);
+  const slaExpedicaoHoras = slaExpedicao(ctx.destCity, sla);
+
   // --- flags (acumuláveis)
   const flags = [];
 
@@ -243,7 +250,7 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
   }
   if (ocorrenciasDeUltimaMilha.length >= 2) flags.push(FLAG.REINCIDENTE);
 
-  if (horasAteExpedir != null && horasAteExpedir > sla.expedicaoDaBaseHoras) {
+  if (horasAteExpedir != null && horasAteExpedir > slaExpedicaoHoras) {
     flags.push(FLAG.PARADO_NA_BASE);
   }
   if (horasSemMovimento > sla.semMovimentoHoras) flags.push(FLAG.SEM_MOVIMENTO);
@@ -261,8 +268,6 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
     flags.reduce((s, f) => s + (FLAG_META[f]?.peso ?? 0), 0) +
     Math.min(60, Math.floor(horasSemMovimento / 12) * 5) +
     Math.min(40, Math.floor(diasDeResponsabilidade) * 4);
-
-  const ctx = timeline.find((e) => e.destCity) ?? {};
 
   return {
     pkgId,
@@ -297,6 +302,11 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
     // Qual das nossas bases responde por este pacote agora.
     baseResponsavel,
     transferidoEntreBases,
+
+    // O prazo de expedição que vale para este destino, e se ele já estourou.
+    naCidadeBase,
+    slaExpedicaoHoras,
+    atrasadoNaExpedicao: horasAteExpedir != null && horasAteExpedir > slaExpedicaoHoras,
 
     coletadoEm,
     // O dia em que o pacote entrou no circuito desta base — o marco zero de

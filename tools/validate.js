@@ -27,7 +27,8 @@ import { noCircuito } from "../src/ui/fechamento.js";
 import { daBase } from "../src/ui/painel.js";
 import { ACAO, definirAutor, novaAtividade, cobradoHoje } from "../src/atividades.js";
 import { FLAG, SITUACAO, SITUACAO_META, FACT, STAGE, SCAN_TYPES, FECHAMENTOS,
-         responsavelDaConta, ehBasePropria, apelidoDaBase } from "../src/config.js";
+         responsavelDaConta, ehBasePropria, apelidoDaBase,
+         ehCidadeBase, slaExpedicao } from "../src/config.js";
 import { VERSAO, ARQUIVOS } from "../src/versao.js";
 
 const require = createRequire(import.meta.url);
@@ -123,8 +124,10 @@ check("troca de motorista", resumo.porFlag[FLAG.TROCA_DE_MOTORISTA] ?? 0, 1);
 // 4 e não 2: além dos dois casos de 54h, há outros dois de 10,4h e 23,5h que
 // também estouram o limite de 4h para registrar a problemática.
 check("ocorrência lenta", resumo.porFlag[FLAG.OCORRENCIA_LENTA] ?? 0, 4);
-// 3 e não 2: com o limite de 12h, o pacote de 27,9h entra junto com os de 72h+.
-check("parado na base", resumo.porFlag[FLAG.PARADO_NA_BASE] ?? 0, 3);
+// 2, e não os 3 do limite único de 12h: o pacote de 27,9h para Santo Antônio
+// da Barra parou de acender, porque interior espera a viagem daquela cidade.
+// Os dois que sobraram são de Rio Verde, 77,9h e 72,3h — mais de 12x o prazo.
+check("parado na base", resumo.porFlag[FLAG.PARADO_NA_BASE] ?? 0, 2);
 check("retornado ao galpão", resumo.porSituacao[SITUACAO.RETORNADO_GALPAO] ?? 0, 1);
 check("ocorrência em aberto", resumo.porSituacao[SITUACAO.OCORRENCIA_EM_ABERTO] ?? 0, 1);
 
@@ -434,6 +437,20 @@ const devolvido = buildPackages([recebeu, saiuComA, voltouAoGalpao], { now: agor
 check("pacote devolvido ao galpão não fica no nome de ninguém",
   devolvido.packages[0].motoristaAtual, null);
 check("quem devolveu ao galpão sai da cobrança", devolvido.byDriver.length, 0);
+
+// o prazo de expedição depende do destino: cidade base sai na rota do dia,
+// interior espera a viagem daquela cidade
+check("a cidade base é reconhecida", ehCidadeBase("Rio Verde"), true);
+check("reconhecimento ignora caixa e acento", ehCidadeBase("RIO VERDE"), true);
+check("cidade do interior não é a base", ehCidadeBase("Acreúna"), false);
+check("prazo curto para a cidade base", slaExpedicao("Rio Verde"), 6);
+check("prazo de rota para o interior", slaExpedicao("Porteirão"), 48);
+check("destino desconhecido usa o prazo do interior", slaExpedicao(null), 48);
+check("cada pacote carrega o prazo do seu destino",
+  packages.every((p) => p.slaExpedicaoHoras === (p.naCidadeBase ? 6 : 48)), true);
+// 18h parado é esquecimento na cidade base e é normal no interior
+check("18h parado estoura na cidade base", 18 > slaExpedicao("Rio Verde"), true);
+check("18h parado NÃO estoura no interior", 18 > slaExpedicao("Porteirão"), false);
 
 // duas bases nossas em Rio Verde: trocar entre elas não encerra nada
 check("a base principal é nossa", ehBasePropria("F RVD - GO"), true);

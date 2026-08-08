@@ -52,7 +52,11 @@ export function cardPacote(p) {
       : p.situacao === SITUACAO.EM_TRATATIVA_BASE
       ? `Em tratativa há <b>${duracao(p.horasComMotorista)}</b>`
       : p.situacao === SITUACAO.NA_BASE_NAO_EXPEDIDO
-      ? `Na base há <b>${duracao(p.horasAteExpedir)}</b> sem sair`
+      // O prazo aparece junto porque ele muda com o destino: 18h parado é
+      // esquecimento na cidade base e é normal para o interior, que espera a
+      // viagem. Sem o prazo ao lado, o mesmo número mente metade das vezes.
+      ? `Na base há <b>${duracao(p.horasAteExpedir)}</b> · prazo ${p.slaExpedicaoHoras}h${
+          p.atrasadoNaExpedicao ? " <b>estourado</b>" : ""}`
       : `Parado há <b>${duracao(p.horasSemMovimento)}</b>`;
 
   const motorista = p.motoristaAtual ?? p.motoristasEnvolvidos[p.motoristasEnvolvidos.length - 1];

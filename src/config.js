@@ -144,11 +144,35 @@ export const SLA_PADRAO = {
   posseMotoristaHoras: 8,
   // Tempo entre receber o pacote e registrar a ocorrência.
   registroOcorrenciaHoras: 4,
-  // Recebido na base e ainda não despachado = gargalo interno.
-  expedicaoDaBaseHoras: 12,
+  // Recebido na base e ainda não despachado. O prazo depende de ONDE o pacote
+  // vai entregar — ver `CIDADE_BASE` abaixo.
+  expedicaoCidadeBaseHoras: 6,
+  expedicaoInteriorHoras: 48,
   // Nenhum evento de nenhum tipo nesse intervalo = pacote sumiu do radar.
   semMovimentoHoras: 24,
 };
+
+// A cidade onde a base fica.
+//
+// Pacote daqui sai na rota do mesmo dia: se ficou parado, é esquecimento.
+// Pacote de interior espera a viagem daquela cidade: ficar parado é o normal.
+//
+// Os números provaram isso na base real (08/08/2026): Rio Verde levava 48,4h em
+// média para sair, contra 23,6h do interior — o que está na porta demorava o
+// DOBRO do que precisa esperar viagem. Um SLA único de 12h para os dois era
+// ruído para o interior e chegava tarde demais para a cidade base.
+export const CIDADE_BASE = "Rio Verde";
+
+const chaveCidade = (c) =>
+  String(c ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toUpperCase();
+
+const CIDADE_BASE_NORM = chaveCidade(CIDADE_BASE);
+
+export const ehCidadeBase = (cidade) => chaveCidade(cidade) === CIDADE_BASE_NORM;
+
+/** O prazo de expedição que vale para este destino. */
+export const slaExpedicao = (cidade, sla = SLA_PADRAO) =>
+  ehCidadeBase(cidade) ? sla.expedicaoCidadeBaseHoras : sla.expedicaoInteriorHoras;
 
 export const PREFIXO_MOTORISTA_PADRAO = "F RVD -";
 

@@ -365,5 +365,6 @@ Três decisões que sustentam o resto:
 |---|---|---|
 | `posseMotoristaHoras` | 8h | despacho aberto além disso = atrasado |
 | `registroOcorrenciaHoras` | 4h | demora para registrar a problemática |
-| `expedicaoDaBaseHoras` | 12h | recebido na base e não despachado |
+| `expedicaoCidadeBaseHoras` | 6h | recebido e não despachado, **destino Rio Verde** — sai na rota do dia, então parar é esquecimento |
+| `expedicaoInteriorHoras` | 48h | recebido e não despachado, **destino interior** — espera a viagem daquela cidade, parar é o normal |
 | `semMovimentoHoras` | 24h | nenhum bipe de nenhum tipo |
