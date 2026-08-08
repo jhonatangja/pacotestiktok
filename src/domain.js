@@ -12,6 +12,7 @@
 import {
   FACT, FECHAMENTOS, SLA_PADRAO, PREFIXO_MOTORISTA_PADRAO, BASE_OPERACAO,
   SITUACAO, SITUACAO_META, FLAG, FLAG_META, CLIENTE_AGUARDANDO_SEMPRE,
+  ehContaDeTratativa,
 } from "./config.js";
 import { sortEvents, stripDriverPrefix } from "./ingest.js";
 import { STATUS, DESFECHO } from "./tratativa.js";
@@ -126,7 +127,11 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
   for (const d of despachos) {
     d.aberto = d.closedAt == null;
     d.horasPosse = round1(horas((d.closedAt ?? now) - d.startedAt));
-    d.estourado = d.aberto && d.horasPosse > sla.posseMotoristaHoras;
+    // Bipe para uma conta de tratativa não é posse de motorista: o pacote não
+    // saiu para a rua, está sendo tratado aqui dentro. Não estoura prazo de
+    // motorista nem gera cobrança.
+    d.contaDeTratativa = ehContaDeTratativa(d.driver);
+    d.estourado = d.aberto && !d.contaDeTratativa && d.horasPosse > sla.posseMotoristaHoras;
   }
 
   const despachoAberto = despachos.find((d) => d.aberto) ?? null;
@@ -138,7 +143,9 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
   // Outra base recebeu: o pacote saiu do circuito daqui e nada mais é cobrável.
   else if (emOutraBase) situacao = SITUACAO.RECEBIDO_OUTRA_BASE;
   else if (ultimo.fact === FACT.GALPAO) situacao = SITUACAO.RETORNADO_GALPAO;
-  else if (despachoAberto) situacao = despachoAberto.estourado
+  else if (despachoAberto) situacao = despachoAberto.contaDeTratativa
+    ? SITUACAO.EM_TRATATIVA_BASE
+    : despachoAberto.estourado
     ? SITUACAO.COM_MOTORISTA_ESTOURADO
     : SITUACAO.COM_MOTORISTA_NO_PRAZO;
   else if (ultimo.fact === FACT.OCORRENCIA) situacao = SITUACAO.OCORRENCIA_EM_ABERTO;
@@ -202,7 +209,11 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
   const rebipes = despachos.filter((d) => d.anomalia === FLAG.REBIPE_SEM_TRATATIVA);
   if (rebipes.length) flags.push(FLAG.REBIPE_SEM_TRATATIVA);
 
-  const motoristas = [...new Set(despachos.map((d) => d.driver))];
+  // Contas de tratativa ficam fora da lista de motoristas: elas não são gente
+  // na rua, e deixá-las aqui faria o cartão exibir uma conta interna como se
+  // fosse quem está com o pacote — e contaria como "trocou de motorista".
+  const motoristas = [...new Set(despachos.filter((d) => !d.contaDeTratativa).map((d) => d.driver))];
+  const contas = [...new Set(despachos.filter((d) => d.contaDeTratativa).map((d) => d.driver))];
   if (motoristas.length > 1) flags.push(FLAG.TROCA_DE_MOTORISTA);
 
   const ocorrenciasDeUltimaMilha = despachos.filter((d) => d.closedBy === FACT.OCORRENCIA);
@@ -253,11 +264,16 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
     entregueEm: entrega?.ts ?? null,
     entreguePor: entrega ? stripDriverPrefix(entrega.courier ?? entrega.scanner ?? "", prefixo) || null : null,
 
-    motoristaAtual: despachoAberto?.driver ?? null,
+    // `motoristaAtual` é quem responde pelo pacote na rua. Numa conta de
+    // tratativa não há ninguém na rua — e é isso que tira o pacote da cobrança.
+    motoristaAtual: despachoAberto && !despachoAberto.contaDeTratativa
+      ? despachoAberto.driver : null,
+    tratadoNaBasePor: despachoAberto?.contaDeTratativa ? despachoAberto.driver : null,
     horasComMotorista: despachoAberto?.horasPosse ?? null,
     despachos,
     totalDespachos: despachos.length,
     motoristasEnvolvidos: motoristas,
+    contasDeTratativa: contas,
 
     coletadoEm,
     recebidoNaBaseEm,
@@ -303,6 +319,8 @@ export function agruparPorMotorista(packages, now) {
     // caso encerrado pelo operador não gera cobrança
     if (p.resolvido) continue;
     for (const d of p.despachos) {
+      // conta de tratativa não é motorista: não há a quem cobrar
+      if (d.contaDeTratativa) continue;
       const s = slot(d.driver);
       s.pacotes.add(p.pkgId);
       if (d.aberto) {

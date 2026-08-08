@@ -17,6 +17,7 @@ export const TOM = {
   [SITUACAO.OCORRENCIA_EM_ABERTO]:    "ocorrencia",
   [SITUACAO.NA_BASE_NAO_EXPEDIDO]:    "nabase",
   [SITUACAO.COM_MOTORISTA_NO_PRAZO]:  "ok",
+  [SITUACAO.EM_TRATATIVA_BASE]:       "nabase",
   [SITUACAO.EM_TRANSITO]:             "transito",
 };
 

@@ -231,6 +231,11 @@ p { margin: 0; }
   background: var(--navy-100);
 }
 
+/* Conta de tratativa da base: mesma linha, peso visual menor e ícone de casa —
+   quem bate o olho precisa ver na hora que não há ninguém na rua com o pacote. */
+.pkg__driver--base { color: var(--ink-2); font-weight: 500; }
+.pkg__driver .avatar--base { background: var(--nabase-bg); font-size: 13px; }
+
 .pkg__facts { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--ink-2); }
 .pkg__facts b { font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; }
 

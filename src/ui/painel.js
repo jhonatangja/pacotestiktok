@@ -19,6 +19,7 @@ import { cardPacote, cardAguardando, listaVazia } from "./cards.js";
 const EXIGE_ACAO = [
   SITUACAO.RETORNADO_GALPAO,
   SITUACAO.COM_MOTORISTA_ESTOURADO,
+  SITUACAO.EM_TRATATIVA_BASE,
   SITUACAO.OCORRENCIA_EM_ABERTO,
   SITUACAO.NA_BASE_NAO_EXPEDIDO,
   SITUACAO.COM_MOTORISTA_NO_PRAZO,
@@ -27,6 +28,7 @@ const EXIGE_ACAO = [
 const DICA = {
   "Tratar no galpão":  "Voltou fisicamente para a base. Precisa de dono e prazo.",
   "Cobrar motorista":  "TikTok é entrega no mesmo dia — todo pacote com motorista é pendência viva.",
+  "Tratar na base":    "Bipado para uma conta de tratativa. Está aqui dentro — não há motorista a cobrar.",
   "Definir destino":   "Registrou a problemática e parou aí. Onde o pacote está?",
   "Expedir da base":   "Recebido e não despachado. O gargalo é interno, não do motorista.",
 };

@@ -152,6 +152,29 @@ export const SLA_PADRAO = {
 
 export const PREFIXO_MOTORISTA_PADRAO = "F RVD -";
 
+// Contas de "motorista" usadas para TRATATIVA DENTRO DA BASE — não são pessoas
+// que saem para a rua com o pacote.
+//
+// Um `bipe de saída para entrega` para uma delas parece, no JMS, idêntico a um
+// despacho de verdade: abriria dívida no nome de alguém, entraria na fila de
+// cobrança e alguém tentaria mandar WhatsApp para um motorista que não existe.
+// O pacote na verdade continua na base, sendo tratado.
+//
+// Para incluir outra conta, basta acrescentar o nome aqui (sem o prefixo da
+// filial). A comparação ignora acento e maiúscula.
+export const CONTAS_DE_TRATATIVA = [
+  "SAMARA KELLIS PEREIRA DOS SANTOS",
+  "DIONATAN DOS SANTOS",
+];
+
+const semAcento = (s) =>
+  String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toUpperCase();
+
+const CONTAS_NORMALIZADAS = new Set(CONTAS_DE_TRATATIVA.map(semAcento));
+
+/** O nome é uma conta de tratativa da base, e não um motorista de rua? */
+export const ehContaDeTratativa = (nome) => CONTAS_NORMALIZADAS.has(semAcento(nome));
+
 // TikTok Shop é entrega no mesmo dia: todo pacote que ainda está no circuito
 // tem um cliente esperando AGORA. Por isso a cobrança não separa mais "com
 // reclamação" de "sem reclamação" — todos são cobrados como cliente aguardando.
@@ -172,6 +195,7 @@ export const SITUACAO = {
   RETORNADO_GALPAO:        "RETORNADO_GALPAO",
   COM_MOTORISTA_ESTOURADO: "COM_MOTORISTA_ESTOURADO",
   COM_MOTORISTA_NO_PRAZO:  "COM_MOTORISTA_NO_PRAZO",
+  EM_TRATATIVA_BASE:       "EM_TRATATIVA_BASE",
   OCORRENCIA_EM_ABERTO:    "OCORRENCIA_EM_ABERTO",
   NA_BASE_NAO_EXPEDIDO:    "NA_BASE_NAO_EXPEDIDO",
   EM_TRANSITO:             "EM_TRANSITO",
@@ -188,6 +212,9 @@ export const SITUACAO_META = {
   [SITUACAO.RECEBIDO_OUTRA_BASE]:     { label: "Recebido em outra base",   acao: "Encerrado",         peso: 0 },
   [SITUACAO.RETORNADO_GALPAO]:        { label: "Retornou ao galpão",       acao: "Tratar no galpão",  peso: 100 },
   [SITUACAO.COM_MOTORISTA_ESTOURADO]: { label: "Com motorista (atrasado)", acao: "Cobrar motorista",  peso: 90 },
+  // Bipado para uma conta de tratativa: o pacote está na base, não na rua.
+  // Não há motorista a cobrar — quem resolve é a equipe daqui.
+  [SITUACAO.EM_TRATATIVA_BASE]:       { label: "Em tratativa na base",     acao: "Tratar na base",    peso: 85 },
   [SITUACAO.OCORRENCIA_EM_ABERTO]:    { label: "Ocorrência sem desfecho",  acao: "Definir destino",   peso: 80 },
   [SITUACAO.NA_BASE_NAO_EXPEDIDO]:    { label: "Parado na base",           acao: "Expedir da base",   peso: 70 },
   [SITUACAO.COM_MOTORISTA_NO_PRAZO]:  { label: "Com motorista (no prazo)", acao: "Cobrar motorista",  peso: 40 },
