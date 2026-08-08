@@ -306,9 +306,22 @@ export const CAUSA_POR_MOTIVO = {
   "ausencia do destinatario":                    CAUSA.AUSENCIA,
 };
 
+// Quem liga para o cliente quando o motorista não resolve na rua. É o
+// assistente da base que responde pelo pacote — definido pela operação.
+export const ASSISTENTE_DA_BASE = {
+  "F RVD - GO":  "SAMUEL RVD 1",
+  "F RVD 02-GO": "MARCOS RVD 2",
+};
+
+export const assistenteDaBase = (base) =>
+  ASSISTENTE_DA_BASE[String(base ?? "").trim()] ?? null;
+
 export const CAUSA_META = {
   [CAUSA.ENDERECO]: {
     label: "Endereço com problema",
+    // Endereço errado não se resolve indo de novo: alguém precisa falar com o
+    // cliente. Fora da área, não — aquilo se resolve devolvendo.
+    exigeContato: true,
     // O que a operação definiu: tentar contato e, não conseguindo, devolver.
     // Sair de novo com o mesmo endereço errado é o que precisa parar.
     ordem: "Não saia com ele de novo no mesmo endereço. Tente contato com o cliente pelo aplicativo e, se não conseguir falar, devolva ao galpão HOJE.",
@@ -316,11 +329,13 @@ export const CAUSA_META = {
   },
   [CAUSA.FORA_DA_AREA]: {
     label: "Fora da área de entrega",
+    exigeContato: false,
     ordem: "Não tente entregar — não é cidade que a gente atende. Devolva ao galpão HOJE para voltar para a malha.",
     resumo: "devolver, sem tentar",
   },
   [CAUSA.AUSENCIA]: {
     label: "Cliente ausente",
+    exigeContato: true,
     ordem: "Combine um horário com o cliente pelo aplicativo antes de ir de novo. Sem horário combinado, devolva ao galpão HOJE.",
     resumo: "combinar horário",
   },

@@ -16,7 +16,7 @@ import { buildEvents, dedupeEvents, mergeEvents, normalize, reclassifyEvents, st
 import { buildPackages, codigosEmAberto } from "../src/domain.js";
 import { codigosParaReconsultar } from "../src/export.js";
 import { createMemoryRepo } from "../src/repo.js";
-import { separarCodigos } from "../src/tratativa.js";
+import { separarCodigos, novaTratativa } from "../src/tratativa.js";
 import { mensagemCobranca, prazoDaCobranca } from "../src/charge.js";
 import { aguardandoImportacao } from "../src/aguardando.js";
 import { normalizarTelefone, telefoneValido, linkWhatsApp } from "../src/contatos.js";
@@ -25,10 +25,12 @@ import { listarMotoristas } from "../src/ui/motoristas.js";
 import { pacotesResolvidos, tempoDeResolucao, doPeriodo } from "../src/ui/resolvidos.js";
 import { noCircuito } from "../src/ui/fechamento.js";
 import { daBase } from "../src/ui/painel.js";
+import { paraContatar } from "../src/ui/cliente.js";
 import { ACAO, definirAutor, novaAtividade, cobradoHoje } from "../src/atividades.js";
 import { FLAG, SITUACAO, SITUACAO_META, FACT, STAGE, SCAN_TYPES, FECHAMENTOS,
          responsavelDaConta, ehBasePropria, apelidoDaBase,
-         ehCidadeBase, slaExpedicao, CAUSA, CAUSA_POR_MOTIVO } from "../src/config.js";
+         ehCidadeBase, slaExpedicao, CAUSA, CAUSA_POR_MOTIVO, CAUSA_META,
+         assistenteDaBase } from "../src/config.js";
 import { VERSAO, ARQUIVOS } from "../src/versao.js";
 
 const require = createRequire(import.meta.url);
@@ -493,6 +495,31 @@ const semCausa = buildPackages([
 check("sem ocorrência não há causa", semCausa.packages[0].causa, null);
 check("sem ocorrência a ordem continua sendo entregar",
   mensagemCobranca(semCausa.byDriver[0], {}, new Date(2026, 7, 8, 9, 0)).includes("entregue HOJE"), true);
+
+// a fila de contato com o cliente: só as causas que uma ligação resolve
+check("endereço exige contato", CAUSA_META[CAUSA.ENDERECO].exigeContato, true);
+check("ausência exige contato", CAUSA_META[CAUSA.AUSENCIA].exigeContato, true);
+check("fora da área NÃO exige contato — resolve devolvendo",
+  CAUSA_META[CAUSA.FORA_DA_AREA].exigeContato, false);
+check("RVD 1 é do Samuel", assistenteDaBase("F RVD - GO"), "SAMUEL RVD 1");
+check("RVD 2 é do Marcos", assistenteDaBase("F RVD 02-GO"), "MARCOS RVD 2");
+check("base de fora não tem assistente nosso", assistenteDaBase("GO GYN"), null);
+
+const filaCliente = paraContatar(comEndereco.packages, agora);
+check("pacote com endereço incorreto entra na fila de contato", filaCliente.length, 1);
+check("a fila é atribuída sozinha pela base", filaCliente[0].responsavel, "SAMUEL RVD 1");
+check("o relógio da fila conta desde a ocorrência",
+  Math.round(filaCliente[0].horasDesdeOcorrencia), 24);
+check("fora da área não entra na fila de contato",
+  paraContatar(foraDaArea.packages, agora).length, 0);
+check("pacote sem ocorrência não entra na fila",
+  paraContatar(semCausa.packages, agora).length, 0);
+check("pacote resolvido sai da fila de contato",
+  paraContatar(comEndereco.packages.map((p) => ({ ...p, resolvido: true })), agora).length, 0);
+
+// o telefone do cliente vive na tratativa, que a importação nunca sobrescreve
+check("a tratativa nasce com campo de telefone do cliente",
+  novaTratativa("1").telefoneCliente, "");
 
 // o prazo de expedição depende do destino: cidade base sai na rota do dia,
 // interior espera a viagem daquela cidade

@@ -54,6 +54,29 @@ Cada cartão mostra **desde quando** o pacote está no circuito (`No circuito de
 8d`). O tempo decorrido responde a urgência; a data é o que se usa para conferir com a
 planilha e para dizer ao cliente desde quando o pacote está parado aqui.
 
+## Falar com o cliente
+
+Metade das ocorrências da operação é problema de endereço, e **endereço errado não se
+resolve indo de novo**: o motorista pode ir cinco vezes que não vai achar, e cada volta
+custa ~24h porque a rota sai uma vez por dia. Foi assim que a média chegou a 2,1 despachos
+por pacote.
+
+A aba junta os pacotes que dependem de uma conversa e os **atribui sozinha** pelo dono da
+base — RVD 1 → **Samuel**, RVD 2 → **Marcos** (`ASSISTENTE_DA_BASE` em `src/config.js`).
+Ninguém precisa distribuir tarefa de manhã.
+
+Só entram as causas que uma ligação resolve (`exigeContato`): endereço e cliente ausente.
+**Erro de triagem fica de fora** — aquilo se resolve devolvendo, e ligar não muda nada.
+
+Cada linha é a tarefa inteira, sem precisar abrir o pacote: o motivo que o motorista
+registrou, há quanto tempo, quem está com ele, o campo de telefone e os dois desfechos
+(*falei* / *não consegui*). O relógio conta **desde a ocorrência**, não desde a entrada no
+circuito — é dali que alguém precisa agir.
+
+O telefone do destinatário não vem em planilha nenhuma: quem precisa dele consulta o pacote
+no JMS. Guardar o número na tratativa faz essa consulta acontecer **uma vez** — sem isso, a
+próxima pessoa garimpa o mesmo número de novo.
+
 ## Quanto tempo a operação leva para resolver
 
 A aba **Resolvidos** mede o ciclo fechado: do `bipe de recebimento` até o desfecho. Filtro
@@ -244,13 +267,15 @@ node tools/validate.js
    e o prazo do horário (ver abaixo). **Só aparece quem está com pacote na mão agora.**
    Cadastre o WhatsApp do motorista uma vez e o botão **📲 Cobrar no WhatsApp** abre a
    conversa já no contato certo, com a mensagem montada — um clique por cobrança.
-4. **Galpão** — cada pacote retornado vira tarefa com responsável, prazo e registros.
-5. **Motoristas** — o cadastro de motoristas: todos que já apareceram num pacote, mais quem
+4. **Falar com o cliente** — endereço errado não se resolve indo de novo. Os pacotes que
+   dependem de uma conversa, já atribuídos: RVD 1 → Samuel, RVD 2 → Marcos.
+5. **Galpão** — cada pacote retornado vira tarefa com responsável, prazo e registros.
+6. **Motoristas** — o cadastro de motoristas: todos que já apareceram num pacote, mais quem
    você registrar à mão. Guarde o WhatsApp uma vez e cobre com um clique de qualquer tela.
-6. **Fechamento** — a varredura do fim do dia: tudo que ainda está no circuito, com
+7. **Fechamento** — a varredura do fim do dia: tudo que ainda está no circuito, com
    cobrança de um clique por motorista exigindo a atualização da situação no JMS.
-7. **Resolvidos** — o arquivo dos casos encerrados, e o **tempo de resolução** da operação.
-6. **Copiar códigos para reconsultar** — devolve a lista de pedidos ainda em aberto,
+8. **Resolvidos** — o arquivo dos casos encerrados, e o **tempo de resolução** da operação.
+9. **Copiar códigos para reconsultar** — devolve a lista de pedidos ainda em aberto,
    pronta para colar na consulta do JMS no dia seguinte.
 
 ## Ações da equipe (quem fez o quê)

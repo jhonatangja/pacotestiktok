@@ -14,11 +14,12 @@ import { renderPainel, pendencias } from "./src/ui/painel.js";
 import { renderPacote } from "./src/ui/pacote.js";
 import { renderCobranca } from "./src/ui/cobranca.js";
 import { renderGalpao, pacotesDoGalpao } from "./src/ui/galpao.js";
+import { renderCliente, paraContatar, mensagemCliente } from "./src/ui/cliente.js";
 import { renderResolvidos, pacotesResolvidos } from "./src/ui/resolvidos.js";
 import { renderMotoristas, contarMotoristas } from "./src/ui/motoristas.js";
 import { renderFechamento, noCircuito, mensagemFechamento } from "./src/ui/fechamento.js";
 import { aguardandoImportacao, codigosAguardando } from "./src/aguardando.js";
-import { ACAO, definirAutor, novaAtividade, cobradoHoje } from "./src/atividades.js";
+import { ACAO, definirAutor, novaAtividade, cobradoHoje, contatadoHoje } from "./src/atividades.js";
 import { mensagemCobranca, mensagemFechamentoMotorista } from "./src/charge.js";
 import { novaTratativa, adicionarNota, alternarTicket, separarCodigos, STATUS, DESFECHO_META } from "./src/tratativa.js";
 import { buildEnrichment } from "./src/enrich.js";
@@ -66,13 +67,14 @@ const el = {
     importar: $("screenImportar"), painel: $("screenPainel"),
     pacotes: $("screenPacotes"), cobranca: $("screenCobranca"), galpao: $("screenGalpao"),
     resolvidos: $("screenResolvidos"), motoristas: $("screenMotoristas"),
-    fechamento: $("screenFechamento"),
+    fechamento: $("screenFechamento"), cliente: $("screenCliente"),
   },
   stats: $("stats"), grupos: $("grupos"), filtroBases: $("filtroBases"),
   listaPacotes: $("listaPacotes"), busca: $("buscaPacote"), filtroSituacao: $("filtroSituacao"),
   dropzone: $("dropzone"), dropzoneTitle: $("dropzoneTitle"), fileInput: $("fileInput"),
   importResult: $("importResult"), baseAtual: $("baseAtual"), baseAtualKv: $("baseAtualKv"),
   cobranca: $("cobranca"), galpao: $("galpao"), resolvidos: $("resolvidos"),
+  cliente: $("cliente"),
   motoristas: $("motoristas"), fechamento: $("fechamento"),
   drawerOverlay: $("drawerOverlay"), drawer: $("drawer"), drawerBody: $("drawerBody"),
   drawerTitulo: $("drawerTitulo"), drawerSituacao: $("drawerSituacao"),
@@ -198,6 +200,9 @@ function renderTudo() {
     // os contadores mostram o que falta fazer, não o total histórico
     $("countCobranca").textContent = state.byDriver.reduce((s, m) => s + m.totalAbertos, 0);
     $("countGalpao").textContent = pacotesDoGalpao(state.packages).length;
+    // o contador mostra o que falta ligar hoje, não o total da fila
+    $("countCliente").textContent = paraContatar(state.packages)
+      .filter((p) => !contatadoHoje(state.atividades, p.pkgId)).length;
     $("countMotoristas").textContent = contarMotoristas(state.packages, state.byDriver, state.contatos);
     // o contador do fechamento mostra o que falta cobrar hoje, não o total
     $("countFechamento").textContent = noCircuito(state.packages)
@@ -208,6 +213,7 @@ function renderTudo() {
   renderListaPacotes();
   renderCobranca(el.cobranca, state.byDriver, state.motorista, state.cobrancas, state.enrichment, state.contatos);
   renderGalpao(el.galpao, state.packages, state.tratativas);
+  renderCliente(el.cliente, state.packages, state.tratativas, state.atividades);
   renderResolvidos(el.resolvidos, state.packages, state.tratativas, state.periodoResolvidos);
   renderMotoristas(el.motoristas, state.packages, state.byDriver, state.contatos, state.buscaMotorista);
   renderFechamento(el.fechamento, state.packages, state.byDriver, state.contatos,
@@ -308,6 +314,7 @@ async function salvarTratativa(pkgId, mudanca, redesenhar = true) {
   const p = state.packages.find((x) => x.pkgId === pkgId);
   if (p && redesenhar) desenharDrawer(p);
   renderGalpao(el.galpao, state.packages, state.tratativas);
+  renderCliente(el.cliente, state.packages, state.tratativas, state.atividades);
   $("countGalpao").textContent = pacotesDoGalpao(state.packages)
     .filter((x) => state.tratativas[x.pkgId]?.status !== STATUS.RESOLVIDA).length;
 }
@@ -611,6 +618,86 @@ $("btnLimparBase").addEventListener("click", async () => {
   irPara("importar");
   toast("Histórico de eventos apagado.", "good");
 });
+
+// ------------------------------------------------- falar com o cliente
+el.cliente.addEventListener("click", async (e) => {
+  const guardar = e.target.closest("[data-salvar-tel]");
+  if (guardar) return void salvarTelefoneCliente(guardar.dataset.salvarTel);
+
+  const zap = e.target.closest("[data-zap-cliente]");
+  if (zap) {
+    const pkgId = zap.dataset.zapCliente;
+    const p = state.packages.find((x) => x.pkgId === pkgId);
+    const tel = state.tratativas[pkgId]?.telefoneCliente;
+    if (!p || !telefoneValido(tel)) { toast("Guarde um telefone válido primeiro.", "bad"); return; }
+    // abre ANTES do await: o navegador só permite window.open como consequência
+    // direta do clique
+    window.open(linkWhatsApp(tel, mensagemCliente(p, state.enrichment)), "_blank", "noopener");
+    await registrar(pkgId, ACAO.CONTATO_FALHOU, "WhatsApp aberto — aguardando resposta");
+    await recarregar();
+    irPara("cliente");
+    toast("WhatsApp aberto. Marque o resultado quando o cliente responder.", "good");
+    return;
+  }
+
+  const ok = e.target.closest("[data-contato-ok]");
+  if (ok) {
+    const pkgId = ok.dataset.contatoOk;
+    const nota = prompt("O que o cliente informou? (endereço novo, horário combinado…)");
+    if (nota === null) return;
+    await registrar(pkgId, ACAO.CONTATO_OK, nota.trim());
+    await salvarNotaNaTratativa(pkgId, `Contato com o cliente: ${nota.trim()}`);
+    await recarregar();
+    irPara("cliente");
+    toast("Contato registrado. O pacote pode voltar para a rota.", "good");
+    return;
+  }
+
+  const falhou = e.target.closest("[data-contato-falhou]");
+  if (falhou) {
+    const pkgId = falhou.dataset.contatoFalhou;
+    await registrar(pkgId, ACAO.CONTATO_FALHOU, "sem sucesso");
+    await recarregar();
+    irPara("cliente");
+    toast("Tentativa registrada. Sem contato, o pacote deve voltar ao galpão hoje.", "");
+  }
+});
+
+// Enter no campo de telefone guarda, sem precisar mirar no botão
+el.cliente.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && e.target.matches("[data-tel-cliente]")) {
+    e.preventDefault();
+    salvarTelefoneCliente(e.target.dataset.telCliente);
+  }
+});
+
+/**
+ * O telefone do cliente não vem em planilha nenhuma — quem precisa dele consulta
+ * o pacote no JMS. Guardar na tratativa faz essa consulta acontecer UMA vez.
+ */
+async function salvarTelefoneCliente(pkgId) {
+  const campo = el.cliente.querySelector(`[data-tel-cliente="${cssEscape(pkgId)}"]`);
+  const bruto = campo?.value ?? "";
+  const telefone = normalizarTelefone(bruto);
+
+  if (bruto.trim() && !telefoneValido(telefone)) {
+    toast("Número fora do padrão. Use DDD + número, ex.: (64) 99999-8888.", "bad");
+    return;
+  }
+
+  const base = state.tratativas[pkgId] ?? novaTratativa(pkgId);
+  await repo.putTreatment({ ...base, telefoneCliente: telefone, atualizadaEm: new Date().toISOString() });
+  if (telefone) await registrar(pkgId, ACAO.TELEFONE, telefone);
+  await recarregar();
+  irPara("cliente");
+  toast(telefone ? "Telefone guardado — ninguém precisa consultar de novo." : "Telefone removido.", "good");
+}
+
+async function salvarNotaNaTratativa(pkgId, texto) {
+  if (!texto) return;
+  const base = state.tratativas[pkgId] ?? novaTratativa(pkgId);
+  await repo.putTreatment(adicionarNota(base, texto));
+}
 
 // janela do tempo médio de resolução, na aba Resolvidos
 el.resolvidos.addEventListener("click", (e) => {

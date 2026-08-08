@@ -46,6 +46,10 @@ export function novaTratativa(pkgId) {
     prazo: null,          // "YYYY-MM-DD"
     status: STATUS.ABERTA,
     ticket: null,         // { aberto, ref, em } — reclamação do cliente na TikTok Shop
+    // O telefone do destinatário não vem em planilha nenhuma: quem precisa dele
+    // consulta o pacote no JMS. Guardar aqui faz essa consulta acontecer UMA vez
+    // — sem isso, a próxima pessoa garimpa o mesmo número de novo.
+    telefoneCliente: "",
     notas: [],
     criadaEm: new Date().toISOString(),
     atualizadaEm: new Date().toISOString(),

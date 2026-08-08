@@ -23,7 +23,7 @@
 // número daqui a cada publicação.
 // ---------------------------------------------------------------------------
 
-export const VERSAO = "2026-08-08.10";
+export const VERSAO = "2026-08-08.11";
 
 // Ancorada no início da linha: um exemplo dentro de um comentário não pode ser
 // confundido com a constante, ou o app se acharia velho para sempre.
@@ -40,7 +40,7 @@ export const ARQUIVOS = [
   "src/contatos.js", "src/domain.js", "src/enrich.js", "src/export.js",
   "src/ingest.js", "src/repo-supabase.js", "src/repo.js", "src/supabase-config.js",
   "src/tratativa.js",
-  "src/ui/cards.js", "src/ui/cobranca.js", "src/ui/fechamento.js", "src/ui/format.js",
+  "src/ui/cards.js", "src/ui/cliente.js", "src/ui/cobranca.js", "src/ui/fechamento.js", "src/ui/format.js",
   "src/ui/galpao.js", "src/ui/motoristas.js", "src/ui/pacote.js", "src/ui/painel.js",
   "src/ui/resolvidos.js",
 ];

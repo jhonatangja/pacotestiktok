@@ -812,3 +812,39 @@ p { margin: 0; }
   border-radius: 9px; padding: 7px 10px;
 }
 .pkg__ordem b { font-weight: 650; }
+
+/* --------------------------------------------- falar com o cliente */
+/* Cada linha é uma tarefa completa: quem, por quê, o telefone e o desfecho.
+   Sem isso, ligar exige abrir o pacote — e o que exige um passo a mais não
+   acontece na correria da manhã. */
+.cli-row {
+  display: flex; flex-direction: column; gap: 11px;
+  padding: 14px 16px; border-radius: var(--radius);
+  background: var(--surface); border: 1px solid var(--line);
+  border-left: 3px solid var(--tone, var(--transito));
+  box-shadow: var(--shadow);
+}
+.cli-row__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.cli-row__code { font-size: 15px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.cli-row__meta {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin-top: 3px; font-size: 12.5px; color: var(--ink-2);
+}
+.cli-row__meta b { color: var(--ink); font-weight: 620; }
+.avatar--mini { width: 20px; height: 20px; font-size: 9px; }
+
+.cli-row__tel { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.cli-row__tel .input { flex: 1 1 220px; }
+
+.cli-row__acoes { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.cli-row__acoes .hint { margin-left: auto; }
+.btn--ok {
+  color: #fff; background: var(--ok); border-color: var(--ok);
+}
+.btn--ok:hover { filter: brightness(1.07); }
+
+.cli-row__ordem {
+  font-size: 12.5px; line-height: 1.45; color: var(--ink-2);
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 9px; padding: 8px 11px;
+}

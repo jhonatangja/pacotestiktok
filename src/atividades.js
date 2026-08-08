@@ -19,6 +19,9 @@ export const ACAO = {
   NOTA:            "NOTA",
   FINALIZADO:      "FINALIZADO",
   REABERTO:        "REABERTO",
+  CONTATO_OK:      "CONTATO_OK",
+  CONTATO_FALHOU:  "CONTATO_FALHOU",
+  TELEFONE:        "TELEFONE",
 };
 
 export const ACAO_META = {
@@ -31,7 +34,13 @@ export const ACAO_META = {
   [ACAO.NOTA]:            { label: "Registrou", icone: "📝", tom: "transito" },
   [ACAO.FINALIZADO]:      { label: "Finalizou", icone: "✅", tom: "ok" },
   [ACAO.REABERTO]:        { label: "Reabriu o caso", icone: "↩️", tom: "galpao" },
+  [ACAO.CONTATO_OK]:      { label: "Falou com o cliente", icone: "☎️", tom: "ok" },
+  [ACAO.CONTATO_FALHOU]:  { label: "Tentou o cliente, sem sucesso", icone: "📵", tom: "galpao" },
+  [ACAO.TELEFONE]:        { label: "Guardou o telefone do cliente", icone: "📇", tom: "nabase" },
 };
+
+/** Tentativas de contato com o cliente, do mais recente para o mais antigo. */
+export const CONTATOS = [ACAO.CONTATO_OK, ACAO.CONTATO_FALHOU];
 
 /** Identidade do operador logado — preenchida no boot (ver app.js). */
 let autorAtual = "local";
@@ -72,6 +81,18 @@ export function cobradoHoje(atividades, pkgId, agora = new Date()) {
 
 export function ultimaCobranca(atividades, pkgId) {
   return doPacote(atividades, pkgId).find((a) => a.tipo === ACAO.COBRANCA) ?? null;
+}
+
+/** Última tentativa de contato com o cliente, tenha dado certo ou não. */
+export function ultimoContato(atividades, pkgId) {
+  return doPacote(atividades, pkgId).find((a) => CONTATOS.includes(a.tipo)) ?? null;
+}
+
+export function contatadoHoje(atividades, pkgId, agora = new Date()) {
+  const corte = inicioDoDia(agora);
+  return doPacote(atividades, pkgId).some(
+    (a) => CONTATOS.includes(a.tipo) && new Date(a.em).getTime() >= corte
+  );
 }
 
 /** Quantas ações cada operador registrou — para o resumo do fechamento. */
