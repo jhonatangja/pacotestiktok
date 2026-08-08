@@ -17,6 +17,7 @@ import { renderGalpao, pacotesDoGalpao } from "./src/ui/galpao.js";
 import { renderResolvidos, pacotesResolvidos } from "./src/ui/resolvidos.js";
 import { renderMotoristas, contarMotoristas } from "./src/ui/motoristas.js";
 import { renderFechamento, noCircuito, mensagemFechamento } from "./src/ui/fechamento.js";
+import { aguardandoImportacao, codigosAguardando } from "./src/aguardando.js";
 import { ACAO, definirAutor, novaAtividade, cobradoHoje } from "./src/atividades.js";
 import { mensagemCobranca, mensagemFechamentoMotorista } from "./src/charge.js";
 import { novaTratativa, adicionarNota, alternarTicket, separarCodigos, STATUS, DESFECHO_META } from "./src/tratativa.js";
@@ -50,6 +51,7 @@ const state = {
   enrichment: {},       // { pkgId: dados da Gestão de Bases }
   contatos: {},         // { driver: { telefone } } — cadastrado uma vez, reutilizado
   atividades: [],       // log append-only de quem fez o quê
+  aguardando: [],       // códigos lançados à mão, ainda sem bipe no JMS
   buscaMotorista: "",
   pacoteAberto: null,
 };
@@ -99,6 +101,8 @@ async function recarregar() {
   // as tratativas entram no motor porque o ticket do cliente reordena a fila
   const r = buildPackages(state.events, { sla: SLA_PADRAO, tratativas: state.tratativas });
   Object.assign(state, { packages: r.packages, byDriver: r.byDriver, resumo: r.resumo });
+  // depende do resultado do motor: só é "aguardando" quem não virou pacote
+  state.aguardando = aguardandoImportacao(state.tratativas, state.packages, r.now);
   renderTudo();
 }
 
@@ -170,16 +174,20 @@ function mostrarResultado(tipo, html) {
 // RENDER
 // ---------------------------------------------------------------------------
 function renderTudo() {
-  const temDados = state.packages.length > 0;
+  // um código lançado à mão já é motivo para abrir as abas: ele é a única
+  // pendência que existe antes de qualquer planilha ser importada
+  const temDados = state.packages.length > 0 || state.aguardando.length > 0;
   el.tabs.hidden = !temDados;
   el.topMeta.hidden = !temDados;
 
   if (temDados) {
-    const ultimo = Math.max(...state.events.map((e) => e.ts));
-    el.metaPacotes.textContent = `${state.packages.length} pacotes · ${state.events.length} eventos`;
-    el.metaAtualizado.textContent = `último bipe ${dataHoraLonga(ultimo)}`;
+    el.metaPacotes.textContent = `${state.packages.length} pacotes · ${state.events.length} eventos`
+      + (state.aguardando.length ? ` · ${state.aguardando.length} aguardando` : "");
+    el.metaAtualizado.textContent = state.events.length
+      ? `último bipe ${dataHoraLonga(Math.max(...state.events.map((e) => e.ts)))}`
+      : "nenhum bipe importado ainda";
 
-    $("countPainel").textContent = pendencias(state.packages).length;
+    $("countPainel").textContent = pendencias(state.packages).length + state.aguardando.length;
     $("countPacotes").textContent = state.packages.length;
     $("countResolvidos").textContent = pacotesResolvidos(state.packages).length;
     // os contadores mostram o que falta fazer, não o total histórico
@@ -188,16 +196,17 @@ function renderTudo() {
     $("countMotoristas").textContent = contarMotoristas(state.packages, state.byDriver, state.contatos);
     // o contador do fechamento mostra o que falta cobrar hoje, não o total
     $("countFechamento").textContent = noCircuito(state.packages)
-      .filter((p) => !cobradoHoje(state.atividades, p.pkgId)).length;
+      .filter((p) => !cobradoHoje(state.atividades, p.pkgId)).length + state.aguardando.length;
   }
 
-  renderPainel(el, state.packages);
+  renderPainel(el, state.packages, state.aguardando);
   renderListaPacotes();
   renderCobranca(el.cobranca, state.byDriver, state.motorista, state.cobrancas, state.enrichment, state.contatos);
   renderGalpao(el.galpao, state.packages, state.tratativas);
   renderResolvidos(el.resolvidos, state.packages, state.tratativas);
   renderMotoristas(el.motoristas, state.packages, state.byDriver, state.contatos, state.buscaMotorista);
-  renderFechamento(el.fechamento, state.packages, state.byDriver, state.contatos, state.atividades);
+  renderFechamento(el.fechamento, state.packages, state.byDriver, state.contatos,
+                   state.atividades, state.aguardando);
   renderBaseAtual();
 }
 
@@ -448,11 +457,13 @@ $("btnMarcarTickets").addEventListener("click", () => aplicarTickets(true));
 $("btnRemoverTickets").addEventListener("click", () => aplicarTickets(false));
 
 /**
- * Marca (ou remove) o ticket de vários pacotes de uma vez.
+ * Adiciona (ou remove) pacotes do circuito. Todo código lançado aqui entra como
+ * ticket do cliente — é para isso que a caixa existe: o operador só lança à mão
+ * o que o cliente reclamou.
  *
- * Códigos que ainda não foram importados NÃO são descartados: o ticket fica
- * guardado e passa a valer sozinho quando o pacote aparecer numa importação
- * futura. A reclamação do cliente costuma chegar antes do bipe.
+ * Códigos que ainda não foram importados NÃO são descartados: viram uma linha
+ * em "Aguardando importação" e passam a pacote de verdade sozinhos quando
+ * aparecerem numa planilha. A reclamação do cliente costuma chegar antes do bipe.
  */
 async function aplicarTickets(marcar) {
   const codigos = separarCodigos(bulk.value);
@@ -478,6 +489,10 @@ async function aplicarTickets(marcar) {
       atualizadaEm: new Date().toISOString(),
     });
 
+    // quem lançou e quando fica no log, igual a qualquer outra ação de operador
+    await registrar(codigo, marcar ? ACAO.TICKET_ABERTO : ACAO.TICKET_REMOVIDO,
+                    naBase.has(codigo) ? "em lote" : "em lote · antes do primeiro bipe");
+
     (naBase.has(codigo) ? aplicados : guardados).push(codigo);
   }
 
@@ -487,7 +502,7 @@ async function aplicarTickets(marcar) {
   const verbo = marcar ? "marcado" : "removido";
   const partes = [];
   if (aplicados.length) partes.push({ tom: "atrasado", txt: `${aplicados.length} ${verbo}${aplicados.length > 1 ? "s" : ""}` });
-  if (guardados.length) partes.push({ tom: "nabase", txt: `${guardados.length} guardado${guardados.length > 1 ? "s" : ""} para depois` });
+  if (guardados.length) partes.push({ tom: "nabase", txt: `${guardados.length} aguardando importação` });
   if (semEfeito.length) partes.push({ tom: "transito", txt: `${semEfeito.length} sem alteração` });
 
   resultadoTickets("ok", `
@@ -496,7 +511,8 @@ async function aplicarTickets(marcar) {
     </div>
     ${guardados.length ? `
       <p style="margin-top:9px;color:var(--ink-2)">
-        Estes códigos ainda não estão na base — o ticket vale assim que o pacote for importado:
+        Estes ainda não têm bipe no JMS. Ficam listados em <b>Aguardando importação</b> e viram
+        pacote sozinhos na próxima planilha:
       </p>
       <ul>${guardados.map((c) => `<li><code>${escapeHtml(c)}</code></li>`).join("")}</ul>` : ""}`);
 
@@ -563,7 +579,10 @@ function resultadoBase(tipo, html) {
 
 // -------------------------------------------------------------- exportações
 $("btnCopiarCodigos").addEventListener("click", async () => {
-  const codigos = codigosParaReconsultar(state.packages, state.tratativas);
+  const codigos = [
+    ...codigosAguardando(state.aguardando),
+    ...codigosParaReconsultar(state.packages, state.tratativas),
+  ];
   if (!codigos.length) { toast("Nenhum código em aberto — nada a reconsultar.", "good"); return; }
   try {
     await navigator.clipboard.writeText(codigos.join("\n"));
@@ -588,7 +607,20 @@ $("btnLimparBase").addEventListener("click", async () => {
   toast("Histórico de eventos apagado.", "good");
 });
 
-document.addEventListener("click", (e) => {
+document.addEventListener("click", async (e) => {
+  // tirar da lista um código lançado à mão (digitado errado, ou resolvido fora
+  // do sistema). Só apaga o que nós criamos — não existe evento por trás dele.
+  const remover = e.target.closest("[data-remover-aguardando]");
+  if (remover) {
+    const pkgId = remover.dataset.removerAguardando;
+    if (!confirm(`Remover ${pkgId} da lista de aguardando importação?`)) return;
+    await repo.deleteTreatment(pkgId);
+    await registrar(pkgId, ACAO.TICKET_REMOVIDO, "removido antes de aparecer no JMS");
+    await recarregar();
+    toast(`${pkgId} removido da lista.`, "good");
+    return;
+  }
+
   const card = e.target.closest("[data-pkg]");
   if (card) abrirPacote(card.dataset.pkg);
 });
@@ -764,7 +796,12 @@ el.fechamento.addEventListener("click", async (e) => {
 
   // códigos do circuito, um por linha — para colar direto na consulta do JMS
   if (e.target.closest("#btnCopiarCircuito")) {
-    const codigos = noCircuito(state.packages).map((p) => p.pkgId);
+    // os lançados à mão entram primeiro: consultar o JMS é justamente o que
+    // falta para eles virarem pacote
+    const codigos = [
+      ...codigosAguardando(state.aguardando),
+      ...noCircuito(state.packages).map((p) => p.pkgId),
+    ];
     if (!codigos.length) { toast("Nenhum pacote no circuito.", "good"); return; }
     try {
       await navigator.clipboard.writeText(codigos.join("\n"));
@@ -776,13 +813,14 @@ el.fechamento.addEventListener("click", async (e) => {
   }
 
   if (e.target.closest("#btnResumoFechamento")) {
-    const msg = mensagemFechamento(state.packages, state.atividades);
+    const msg = mensagemFechamento(state.packages, state.atividades, state.aguardando);
     const ta = $("resumoFechamento");
     if (!msg) { $("fechamentoHint").textContent = "Nada no circuito — nenhum resumo a gerar."; return; }
     ta.value = msg;
     ta.hidden = false;
     $("btnCopiarResumo").disabled = false;
-    $("fechamentoHint").textContent = `${noCircuito(state.packages).length} pacotes no circuito.`;
+    $("fechamentoHint").textContent =
+      `${noCircuito(state.packages).length + state.aguardando.length} pacotes no circuito.`;
     return;
   }
 

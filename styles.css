@@ -198,6 +198,12 @@ p { margin: 0; }
 .pkg:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
 .pkg:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
 
+/* Lançado à mão: a borda tracejada diz sozinha que ainda falta o bipe. Não abre
+   detalhe — não há histórico nenhum para mostrar —, então não simula clique. */
+.pkg--aguardando { cursor: default; border-style: dashed; border-left-style: solid; }
+.pkg--aguardando:hover { transform: none; box-shadow: var(--shadow); }
+.pkg__acoes { display: flex; justify-content: flex-end; }
+
 .pkg__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .pkg__code { font-size: 15px; font-weight: 650; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
 .pkg__dest { font-size: 12.5px; color: var(--ink-3); margin-top: 1px; }
@@ -347,6 +353,8 @@ p { margin: 0; }
   resize: none; overflow-y: auto; line-height: 1.45;
   font-family: inherit; font-variant-numeric: tabular-nums;
 }
+.quickbar__sub { margin: 9px 0 0; font-size: 12.5px; color: var(--ink-3); line-height: 1.5; }
+.quickbar__sub b { color: var(--ink-2); font-weight: 650; }
 .quickbar__out { margin-top: 11px; font-size: 13px; animation: rise .25s var(--ease) both; }
 .quickbar__out ul { margin: 6px 0 0; padding-left: 18px; }
 .quickbar__out code {

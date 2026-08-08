@@ -16,6 +16,7 @@ import { buildEvents, dedupeEvents, mergeEvents } from "../src/ingest.js";
 import { buildPackages, codigosEmAberto } from "../src/domain.js";
 import { createMemoryRepo } from "../src/repo.js";
 import { separarCodigos } from "../src/tratativa.js";
+import { aguardandoImportacao } from "../src/aguardando.js";
 import { normalizarTelefone, telefoneValido, linkWhatsApp } from "../src/contatos.js";
 import { pacotesDoGalpao } from "../src/ui/galpao.js";
 import { pacotesResolvidos } from "../src/ui/resolvidos.js";
@@ -235,6 +236,32 @@ check("separa códigos de qualquer colagem", separarCodigos(colagem).length, 3);
 check("colagem não duplica código repetido",
   separarCodigos(colagem).filter((c) => c === "999881527748083").length, 1);
 check("colagem vazia não vira código", separarCodigos("  \n , ; \n").length, 0);
+
+// pacotes lançados à mão, antes de existir bipe no JMS
+const codigoNovo = "999999999999999";
+const tratsMistas = {
+  [codigoNovo]:      { pkgId: codigoNovo, status: "aberta",
+                       ticket: { aberto: true, ref: "TT-1" },
+                       criadaEm: new Date(Date.now() - 5 * 3600000).toISOString() },
+  // este JÁ está na base: não pode aparecer como "aguardando"
+  "999881516619685": { pkgId: "999881516619685", status: "aberta",
+                       ticket: { aberto: true, ref: "" } },
+  // encerrado à mão sem nunca ter sido bipado: some da lista
+  "888888888888888": { pkgId: "888888888888888", status: "resolvida" },
+};
+const espera = aguardandoImportacao(tratsMistas, packages);
+check("código sem bipe entra na fila de espera", espera.length, 1);
+check("fila de espera aponta o código certo", espera[0]?.pkgId, codigoNovo);
+check("pacote já importado não fica esperando",
+  espera.some((a) => a.pkgId === "999881516619685"), false);
+check("resolvido não fica esperando",
+  espera.some((a) => a.pkgId === "888888888888888"), false);
+check("lançado à mão já nasce com ticket", espera[0]?.ticketAberto, true);
+check("conta as horas de espera", Math.round(espera[0]?.horasEsperando), 5);
+// quando o bipe finalmente chega, o motor absorve o ticket e a espera acaba
+const comBipe = buildPackages(limpos, { now: agora, tratativas: tratsMistas });
+check("ticket lançado antes do bipe vale na importação",
+  comBipe.packages.find((p) => p.pkgId === "999881516619685")?.ticketAberto, true);
 
 // tratativas sobrevivem a uma reimportação
 const repo = createMemoryRepo();

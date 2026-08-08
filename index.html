@@ -114,13 +114,15 @@
   <section class="screen" id="screenPainel" hidden>
     <div class="wrap">
       <div class="quickbar">
-        <span class="quickbar__label">🔴 Lançar tickets do cliente</span>
+        <span class="quickbar__label">🔴 Adicionar pacotes ao circuito</span>
         <div class="quickbar__row">
           <textarea id="ticketBulk" class="input quickbar__input" rows="1"
                     placeholder="Cole os códigos com reclamação aberta — um por linha, ou separados por vírgula/espaço"></textarea>
-          <button class="btn btn--primary" id="btnMarcarTickets">Marcar</button>
+          <button class="btn btn--primary" id="btnMarcarTickets">Adicionar</button>
           <button class="btn btn--ghost" id="btnRemoverTickets">Remover</button>
         </div>
+        <p class="quickbar__sub">Todos entram como <b>ticket do cliente</b>. Os que ainda não foram
+           bipados ficam guardados aqui e viram pacote sozinhos na próxima importação.</p>
         <div class="quickbar__out" id="ticketBulkResult" hidden></div>
       </div>
 

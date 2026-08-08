@@ -21,10 +21,10 @@ export function noCircuito(packages) {
   return packages.filter((p) => !p.resolvido && p.situacao !== SITUACAO.EM_TRANSITO);
 }
 
-export function renderFechamento(el, packages, byDriver, contatos, atividades) {
+export function renderFechamento(el, packages, byDriver, contatos, atividades, aguardando = []) {
   const circuito = noCircuito(packages);
 
-  if (!circuito.length) {
+  if (!circuito.length && !aguardando.length) {
     el.innerHTML = listaVazia(
       "Nenhum pacote no circuito. Tudo finalizado — pode encerrar o dia.", "🌙");
     return;
@@ -67,12 +67,36 @@ export function renderFechamento(el, packages, byDriver, contatos, atividades) {
 
     <div class="fech-acoes">
       <button class="btn btn--primary" id="btnCopiarCircuito">
-        Copiar os ${circuito.length} códigos do circuito
+        Copiar os ${circuito.length + aguardando.length} códigos do circuito
       </button>
-      <span class="hint">Um por linha, pronto para colar na consulta do JMS.</span>
+      <span class="hint">Um por linha, pronto para colar na consulta do JMS.${
+        aguardando.length === 1 ? " Inclui 1 lançado à mão."
+        : aguardando.length ? ` Inclui os ${aguardando.length} lançados à mão.` : ""
+      }</span>
     </div>
 
-    ${pendentes.length === 0 ? `
+    ${aguardando.length ? `
+    <section class="group" style="${tomVars("transito")};margin-bottom:22px">
+      <div class="group__head">
+        <h3>Lançados à mão, sem bipe no JMS</h3>
+        <span class="group__badge">${aguardando.length}</span>
+        <span class="group__hint">Consultar estes códigos no JMS é o que faz eles virarem pacote.</span>
+      </div>
+      <div class="fechamento-lista">
+        ${aguardando.map((a) => `
+          <div class="fech-row" style="${tomVars(a.ticketAberto ? "atrasado" : "transito")}">
+            <div class="fech-row__body">
+              <div class="fech-row__name">${a.ticketAberto ? "🔴 " : ""}${escapeHtml(a.pkgId)}</div>
+              <div class="fech-row__meta">
+                Sem bipe no JMS${a.horasEsperando != null ? ` · lançado há ${duracao(a.horasEsperando)}` : ""}
+                ${a.ticketRef ? ` · ticket ${escapeHtml(a.ticketRef)}` : ""}
+              </div>
+            </div>
+          </div>`).join("")}
+      </div>
+    </section>` : ""}
+
+    ${circuito.length && pendentes.length === 0 ? `
       <div class="card card--ok" style="margin-bottom:20px">
         <strong>Todos os ${circuito.length} pacotes do circuito já foram cobrados hoje.</strong>
         Falta só a resposta de cada um para finalizar no sistema.
@@ -180,9 +204,9 @@ function linhaInterna(p, atividades) {
  * O resumo que vai para o grupo da operação: o que sobrou, com quem, e o que
  * precisa ser atualizado no JMS antes de fechar o dia.
  */
-export function mensagemFechamento(packages, atividades) {
+export function mensagemFechamento(packages, atividades, aguardando = []) {
   const circuito = noCircuito(packages);
-  if (!circuito.length) return null;
+  if (!circuito.length && !aguardando.length) return null;
 
   const l = [];
   const hoje = new Date().toLocaleDateString("pt-BR");
@@ -212,6 +236,15 @@ export function mensagemFechamento(packages, atividades) {
   if (semMotorista.length) {
     l.push(`*Na base (sem motorista)* — ${semMotorista.length}`);
     for (const p of semMotorista) l.push(`• ${p.pkgId} — ${p.situacaoLabel}`);
+    l.push("");
+  }
+
+  // Estes o JMS ainda não conhece: o cliente reclamou antes de o pacote ser
+  // bipado. Quem estiver com eles precisa se manifestar, senão ninguém saberá.
+  if (aguardando.length) {
+    l.push(`*Sem nenhum bipe no JMS* — ${aguardando.length}`);
+    l.push(`Reclamação aberta pelo cliente e nenhum registro de escaneamento. Quem estiver com estes pacotes precisa bipar:`);
+    for (const a of aguardando) l.push(`• 🔴 ${a.pkgId}`);
     l.push("");
   }
 

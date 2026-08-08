@@ -63,6 +63,38 @@ export function cardPacote(p) {
   </button>`;
 }
 
+/**
+ * O cartão de um código lançado à mão, antes do primeiro bipe.
+ *
+ * É deliberadamente pobre: não existe evento nenhum por trás dele, e preencher
+ * com dado que não existe seria pior do que mostrar o vazio. O que ele informa
+ * é só isto: alguém lançou, faz tanto tempo, e o JMS ainda não confirmou.
+ */
+export function cardAguardando(a) {
+  return `
+  <div class="pkg pkg--aguardando ${a.ticketAberto ? "pkg--ticket" : ""}"
+       style="${tomVars(a.ticketAberto ? "atrasado" : "transito")}">
+    <div class="pkg__top">
+      <div>
+        <div class="pkg__code">${a.ticketAberto ? "🔴 " : ""}${escapeHtml(a.pkgId)}</div>
+        <div class="pkg__dest">Nenhum bipe no JMS ainda</div>
+      </div>
+      <span class="pill">Aguardando importação</span>
+    </div>
+
+    <div class="pkg__facts">
+      ${a.horasEsperando != null ? `<span>Lançado há <b>${duracao(a.horasEsperando)}</b></span>` : ""}
+      ${a.ticketRef ? `<span>ticket <b>${escapeHtml(a.ticketRef)}</b></span>` : ""}
+    </div>
+
+    <div class="pkg__acoes">
+      <button class="btn btn--ghost btn--sm" data-remover-aguardando="${escapeHtml(a.pkgId)}">
+        Remover
+      </button>
+    </div>
+  </div>`;
+}
+
 export function listaVazia(mensagem, icone = "✓") {
   return `<div class="empty"><span class="empty__icon">${icone}</span><p>${escapeHtml(mensagem)}</p></div>`;
 }

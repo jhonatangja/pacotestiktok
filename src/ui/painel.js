@@ -12,7 +12,7 @@
 
 import { SITUACAO, SITUACAO_META, FLAG } from "../config.js";
 import { escapeHtml, TOM, tomVars, duracao } from "./format.js";
-import { cardPacote, listaVazia } from "./cards.js";
+import { cardPacote, cardAguardando, listaVazia } from "./cards.js";
 
 // Situações que exigem alguém fazer alguma coisa hoje.
 // Só o que já saiu do controle da base fica de fora (trânsito nacional).
@@ -42,33 +42,40 @@ export function comTicket(packages) {
   return emAberto(packages).filter((p) => p.ticketAberto);
 }
 
-export function renderPainel(el, todos) {
-  if (!todos.length) {
+export function renderPainel(el, todos, aguardando = []) {
+  if (!todos.length && !aguardando.length) {
     el.stats.innerHTML = "";
     el.grupos.innerHTML = listaVazia("Nenhum pacote importado ainda. Comece pela aba Importar.", "📄");
     return;
   }
 
   const packages = emAberto(todos);
-  if (!packages.length) {
+  if (!packages.length && !aguardando.length) {
     el.stats.innerHTML = "";
     el.grupos.innerHTML = listaVazia(
       `Tudo resolvido — os ${todos.length} pacotes estão na aba Resolvidos.`, "✅");
     return;
   }
 
-  el.stats.innerHTML = renderStats(packages);
-  el.grupos.innerHTML = renderGrupos(packages);
+  el.stats.innerHTML = renderStats(packages, aguardando);
+  el.grupos.innerHTML = renderGrupos(packages, aguardando);
 }
 
 // ---------------------------------------------------------------------------
 
-function renderStats(packages) {
+function renderStats(packages, aguardando) {
   const conta = (s) => packages.filter((p) => p.situacao === s).length;
   const comFlag = (f) => packages.filter((p) => p.flags.includes(f)).length;
 
+  // O ticket lançado à mão conta aqui mesmo sem bipe: para o cliente que
+  // reclamou, o pacote existe — o JMS é que ainda não sabe.
+  const ticketsAguardando = aguardando.filter((a) => a.ticketAberto).length;
+
   const cards = [
-    { valor: comTicket(packages).length, label: "ticket do cliente", tom: "atrasado" },
+    { valor: comTicket(packages).length + ticketsAguardando, label: "ticket do cliente", tom: "atrasado" },
+    ...(aguardando.length
+      ? [{ valor: aguardando.length, label: "aguardando importação", tom: "transito" }]
+      : []),
     { valor: pendencias(packages).length, label: "exigem ação hoje", tom: "galpao" },
     { valor: conta(SITUACAO.COM_MOTORISTA_ESTOURADO) + conta(SITUACAO.COM_MOTORISTA_NO_PRAZO),
       label: "com motorista", tom: "ok" },
@@ -86,7 +93,7 @@ function renderStats(packages) {
     </div>`).join("");
 }
 
-function renderGrupos(packages) {
+function renderGrupos(packages, aguardando = []) {
   const grupos = [];
   const jaListados = new Set();
 
@@ -127,8 +134,27 @@ function renderGrupos(packages) {
     }));
   }
 
-  if (!grupos.length) {
+  if (!grupos.length && !aguardando.length) {
     grupos.push(listaVazia("Nenhuma pendência aberta. A operação está limpa.", "✅"));
+  }
+
+  // 3. Lançados à mão: existem para nós, ainda não para o JMS. Ficam abaixo das
+  //    pendências reais de propósito — não há o que fazer com eles hoje além de
+  //    puxá-los na próxima consulta, e um cartão sem dado nenhum não pode
+  //    empurrar para baixo um pacote que está com motorista há 30 horas.
+  if (aguardando.length) {
+    const maisVelho = aguardando[0]?.horasEsperando;
+    grupos.push(`
+      <section class="group" style="${tomVars("transito")}">
+        <div class="group__head">
+          <h3>Aguardando importação</h3>
+          <span class="group__badge">${aguardando.length}</span>
+          <span class="group__hint">Lançados à mão, sem bipe no JMS${
+            maisVelho ? ` · o mais antigo há ${duracao(maisVelho)}` : ""
+          }. Entram sozinhos na próxima planilha importada.</span>
+        </div>
+        <div class="cards">${aguardando.map(cardAguardando).join("")}</div>
+      </section>`);
   }
 
   // O que ainda não chegou na base não vira cartão — vira uma linha de contexto.

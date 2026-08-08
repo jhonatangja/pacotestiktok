@@ -48,6 +48,31 @@ Código que ainda não foi importado **não é descartado**: o ticket fica guard
 a valer sozinho quando o pacote aparecer numa importação futura. A reclamação do cliente
 quase sempre chega antes do bipe.
 
+## Adicionar pacotes ao circuito antes do bipe
+
+O campo no topo do Painel de Ação é também o lugar de **lançar um pacote novo**: cole o
+código e ele entra no circuito na hora, sempre como **ticket do cliente** — é para isso
+que se lança à mão.
+
+Um código sem nenhum bipe no JMS não vira pacote de mentira. Ele aparece numa lista
+própria, **Aguardando importação**, com um cartão deliberadamente vazio: não há histórico
+para mostrar, só o código, há quanto tempo foi lançado e o número do protocolo. Preencher
+esse cartão com dado inventado seria pior que mostrar o vazio.
+
+O que ele ganha por estar ali:
+
+- conta no indicador de **ticket do cliente** e no contador da aba;
+- entra na lista **Copiar os códigos do circuito** e na de **reconsultar no JMS** — em
+  primeiro lugar, porque consultar o JMS é exatamente o que falta para ele virar pacote;
+- aparece no resumo do fechamento em seção própria: *sem nenhum bipe no JMS*, para quem
+  estiver com ele se manifestar;
+- some da lista sozinho na primeira importação em que o código aparecer, virando um pacote
+  normal — já com o ticket marcado.
+
+Se o código foi digitado errado, o botão **Remover** apaga o lançamento. Ele fica abaixo
+das pendências reais de propósito: um cartão sem dado nenhum não pode empurrar para baixo
+um pacote que está com motorista há 30 horas.
+
 Um pacote com ticket:
 
 - vira o **primeiro da fila**, num nível acima de tudo (não é peso somado — um pacote
