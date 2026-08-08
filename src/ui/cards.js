@@ -5,7 +5,7 @@
 // com quem está e há quanto tempo. Nada além disso — o resto é o drawer.
 // ---------------------------------------------------------------------------
 
-import { SITUACAO } from "../config.js";
+import { SITUACAO, BASE_OPERACAO, apelidoDaBase } from "../config.js";
 import {
   escapeHtml, TOM, tomVars, duracao, iniciais, flagLabel, flagHint, flagClasse,
 } from "./format.js";
@@ -19,6 +19,22 @@ function idade(p) {
   if (p.horasNaBase != null) return `<span>Recebido há <b>${duracao(p.horasNaBase)}</b></span>`;
   if (p.diasDesdeColeta != null) return `<span>Em trânsito · coletado há ${p.diasDesdeColeta}d</span>`;
   return "";
+}
+
+/**
+ * De qual das nossas bases é a responsabilidade.
+ *
+ * A base principal fica discreta e a segunda destacada, de propósito: a maioria
+ * dos pacotes é da principal, e carimbar todos com o mesmo peso viraria ruído —
+ * o que precisa saltar aos olhos é a exceção.
+ */
+function baseTag(p) {
+  if (!p.baseResponsavel) return "";
+  const outra = p.baseResponsavel !== BASE_OPERACAO;
+  return `<span class="base-tag ${outra ? "base-tag--outra" : ""}"
+                title="Responsabilidade de ${escapeHtml(p.baseResponsavel)}${
+                  p.transferidoEntreBases ? " — transferido entre bases" : ""}">${
+    escapeHtml(apelidoDaBase(p.baseResponsavel))}${p.transferidoEntreBases ? " ⇄" : ""}</span>`;
 }
 
 export function cardPacote(p) {
@@ -41,7 +57,10 @@ export function cardPacote(p) {
     <div class="pkg__top">
       <div>
         <div class="pkg__code">${p.ticketAberto ? "🔴 " : ""}${escapeHtml(p.pkgId)}</div>
-        <div class="pkg__dest">${escapeHtml(p.destCity ?? "—")}${p.destState ? "/" + escapeHtml(p.destState) : ""}</div>
+        <div class="pkg__dest">
+          ${escapeHtml(p.destCity ?? "—")}${p.destState ? "/" + escapeHtml(p.destState) : ""}
+          ${baseTag(p)}
+        </div>
       </div>
       <span class="pill">${escapeHtml(p.situacaoLabel)}</span>
     </div>

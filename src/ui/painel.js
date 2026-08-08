@@ -10,7 +10,7 @@
 // juntos. O prazo muda a cor do cartão, não o que precisa ser feito.
 // ---------------------------------------------------------------------------
 
-import { SITUACAO, SITUACAO_META, FLAG } from "../config.js";
+import { SITUACAO, SITUACAO_META, FLAG, BASES_OPERACAO, apelidoDaBase } from "../config.js";
 import { escapeHtml, TOM, tomVars, duracao } from "./format.js";
 import { cardPacote, cardAguardando, listaVazia } from "./cards.js";
 
@@ -44,23 +44,58 @@ export function comTicket(packages) {
   return emAberto(packages).filter((p) => p.ticketAberto);
 }
 
-export function renderPainel(el, todos, aguardando = []) {
+/** Só os pacotes sob responsabilidade da base escolhida. "" = todas. */
+export const daBase = (packages, base) =>
+  !base ? packages : packages.filter((p) => p.baseResponsavel === base);
+
+export function renderPainel(el, todos, aguardando = [], base = "") {
+  if (el.filtroBases) el.filtroBases.innerHTML = "";
+
   if (!todos.length && !aguardando.length) {
     el.stats.innerHTML = "";
     el.grupos.innerHTML = listaVazia("Nenhum pacote importado ainda. Comece pela aba Importar.", "📄");
     return;
   }
 
-  const packages = emAberto(todos);
-  if (!packages.length && !aguardando.length) {
+  const abertos = emAberto(todos);
+  if (!abertos.length && !aguardando.length) {
     el.stats.innerHTML = "";
     el.grupos.innerHTML = listaVazia(
       `Tudo resolvido — os ${todos.length} pacotes estão na aba Resolvidos.`, "✅");
     return;
   }
 
-  el.stats.innerHTML = renderStats(packages, aguardando);
-  el.grupos.innerHTML = renderGrupos(packages, aguardando);
+  if (el.filtroBases) el.filtroBases.innerHTML = renderFiltroBases(abertos, base);
+
+  // O que não é da base escolhida sai da tela inteira — inclusive dos números,
+  // senão o indicador diria uma coisa e a lista mostraria outra.
+  const packages = daBase(abertos, base);
+  el.stats.innerHTML = renderStats(packages, base ? [] : aguardando);
+  el.grupos.innerHTML = renderGrupos(packages, base ? [] : aguardando);
+}
+
+/**
+ * A operação tem mais de uma base em Rio Verde, e misturá-las esconde de quem é
+ * a pendência. A barra só aparece quando há de fato mais de uma com pacote —
+ * numa base só ela seria um controle que não controla nada.
+ */
+function renderFiltroBases(packages, atual) {
+  const conta = (b) => packages.filter((p) => p.baseResponsavel === b).length;
+  const comPacote = BASES_OPERACAO.filter((b) => conta(b) > 0);
+  if (comPacote.length < 2) return "";
+
+  const botao = (valor, rotulo, n) => `
+    <button class="basebtn ${atual === valor ? "is-on" : ""}" data-base="${escapeHtml(valor)}">
+      ${escapeHtml(rotulo)} <span class="basebtn__n">${n}</span>
+    </button>`;
+
+  return `
+    <span class="basebar__label">Responsabilidade</span>
+    ${botao("", "Todas", packages.length)}
+    ${comPacote.map((b) => botao(b, apelidoDaBase(b), conta(b))).join("")}
+    ${packages.some((p) => !p.baseResponsavel)
+      ? `<span class="hint">${packages.filter((p) => !p.baseResponsavel).length} ainda sem recebimento em base nenhuma</span>`
+      : ""}`;
 }
 
 // ---------------------------------------------------------------------------

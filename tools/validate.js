@@ -24,9 +24,10 @@ import { pacotesDoGalpao } from "../src/ui/galpao.js";
 import { listarMotoristas } from "../src/ui/motoristas.js";
 import { pacotesResolvidos } from "../src/ui/resolvidos.js";
 import { noCircuito } from "../src/ui/fechamento.js";
+import { daBase } from "../src/ui/painel.js";
 import { ACAO, definirAutor, novaAtividade, cobradoHoje } from "../src/atividades.js";
 import { FLAG, SITUACAO, SITUACAO_META, FACT, STAGE, SCAN_TYPES, FECHAMENTOS,
-         responsavelDaConta } from "../src/config.js";
+         responsavelDaConta, ehBasePropria, apelidoDaBase } from "../src/config.js";
 import { VERSAO, ARQUIVOS } from "../src/versao.js";
 
 const require = createRequire(import.meta.url);
@@ -358,6 +359,46 @@ check("o assistente entra no cadastro de responsáveis",
   listarMotoristas(comConta.packages, comConta.byDriver, {}).some((m) => m.driver === assistente), true);
 check("a conta do JMS some do cadastro",
   listarMotoristas(comConta.packages, comConta.byDriver, {}).some((m) => m.driver === contaJms), false);
+
+// duas bases nossas em Rio Verde: trocar entre elas não encerra nada
+check("a base principal é nossa", ehBasePropria("F RVD - GO"), true);
+check("a segunda base também é nossa", ehBasePropria("F RVD 02-GO"), true);
+check("base de fora não é nossa", ehBasePropria("F APG - GO"), false);
+check("base sem nome não encerra por engano", ehBasePropria(""), true);
+
+const alvoBase2 = "999881549481448";
+const recebeuNaDois = {
+  id: `${alvoBase2}|sintetico|rvd2`, pkgId: alvoBase2,
+  ts: agora + 900000, tsISO: new Date(agora + 900000).toISOString(),
+  rawType: "bipe de recebimento", fact: FACT.RECEBIDO_BASE, stage: STAGE.BASE_FINAL,
+  label: "Recebido na base final", base: "F RVD 02-GO", scanner: "F RVD 02 - CONFERENTE",
+};
+const comBase2 = buildPackages([...limpos, recebeuNaDois], { now: agora + 20 * 3600000 });
+const naDois = comBase2.packages.find((p) => p.pkgId === alvoBase2);
+
+check("recebimento na segunda base NÃO encerra o pacote", naDois.resolvido, false);
+check("recebimento na segunda base não vira 'outra base'",
+  naDois.situacao === SITUACAO.RECEBIDO_OUTRA_BASE, false);
+check("a responsabilidade passa para a segunda base", naDois.baseResponsavel, "F RVD 02-GO");
+check("a transferência entre bases é sinalizada", naDois.transferidoEntreBases, true);
+check("o pacote continua no circuito",
+  noCircuito(comBase2.packages).some((p) => p.pkgId === alvoBase2), true);
+check("o pacote continua na lista de reconsultar",
+  codigosParaReconsultar(comBase2.packages, {}).includes(alvoBase2), true);
+
+// base de FORA continua encerrando, como antes
+const recebeuFora = { ...recebeuNaDois, id: `${alvoBase2}|sintetico|fora`, base: "F APG - GO" };
+const comFora = buildPackages([...limpos, recebeuFora], { now: agora + 20 * 3600000 });
+const fora = comFora.packages.find((p) => p.pkgId === alvoBase2);
+check("base de fora encerra o pacote", fora.resolvido, true);
+check("base de fora vira desfecho de outra base", fora.desfecho, "outra_base");
+
+// o filtro do painel separa a responsabilidade
+check("filtro por base isola a segunda",
+  daBase(comBase2.packages, "F RVD 02-GO").every((p) => p.baseResponsavel === "F RVD 02-GO"), true);
+check("filtro vazio devolve tudo",
+  daBase(comBase2.packages, "").length, comBase2.packages.length);
+check("apelido encurta o nome da base", apelidoDaBase("F RVD 02-GO"), "RVD 2");
 
 // cobrança: todo pacote no circuito é cliente esperando, e o prazo exigido
 // muda sozinho no corte das 14h

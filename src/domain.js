@@ -10,7 +10,7 @@
 // ---------------------------------------------------------------------------
 
 import {
-  FACT, FECHAMENTOS, SLA_PADRAO, PREFIXO_MOTORISTA_PADRAO, BASE_OPERACAO,
+  FACT, FECHAMENTOS, SLA_PADRAO, PREFIXO_MOTORISTA_PADRAO, ehBasePropria,
   SITUACAO, SITUACAO_META, FLAG, FLAG_META, CLIENTE_AGUARDANDO_SEMPRE,
   responsavelDaConta,
 } from "./config.js";
@@ -75,12 +75,21 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
   // nossa base marca o início da responsabilidade; um recebimento em base
   // DIFERENTE significa que outra unidade assumiu o pacote — ele saiu daqui.
   const recebimentos = timeline.filter((e) => e.fact === FACT.RECEBIDO_BASE);
-  const daNossaBase = (b) => !b || !BASE_OPERACAO ||
-    b.trim().toUpperCase() === BASE_OPERACAO.trim().toUpperCase();
 
-  const recebidoNaBaseEm = (recebimentos.find((e) => daNossaBase(e.base)) ?? recebimentos[0])?.ts ?? null;
+  // O primeiro recebimento numa base NOSSA marca o início da responsabilidade.
+  const nossos = recebimentos.filter((e) => ehBasePropria(e.base));
+  const recebidoNaBaseEm = (nossos[0] ?? recebimentos[0])?.ts ?? null;
+
+  // Trocar de base entre as nossas não encerra nada: o pacote continua no
+  // circuito, só muda de dono. Quem responde por ele agora é a ÚLTIMA base
+  // nossa que o recebeu.
+  const ultimoRecebimentoNosso = nossos[nossos.length - 1] ?? null;
+  const baseResponsavel = ultimoRecebimentoNosso?.base ?? null;
+  const transferidoEntreBases = new Set(nossos.map((e) => e.base)).size > 1;
+
+  // Só um recebimento em base de FORA encerra o caso aqui.
   const emOutraBase = recebimentos.find(
-    (e) => !daNossaBase(e.base) && (recebidoNaBaseEm == null || e.ts >= recebidoNaBaseEm)
+    (e) => !ehBasePropria(e.base) && (recebidoNaBaseEm == null || e.ts >= recebidoNaBaseEm)
   ) ?? null;
 
   // `assinatura de encomenda`: o cliente assinou. É a evidência mais forte que
@@ -274,6 +283,10 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
     despachos,
     totalDespachos: despachos.length,
     motoristasEnvolvidos: motoristas,
+
+    // Qual das nossas bases responde por este pacote agora.
+    baseResponsavel,
+    transferidoEntreBases,
 
     coletadoEm,
     recebidoNaBaseEm,

@@ -53,6 +53,7 @@ const state = {
   contatos: {},         // { driver: { telefone } } — cadastrado uma vez, reutilizado
   atividades: [],       // log append-only de quem fez o quê
   aguardando: [],       // códigos lançados à mão, ainda sem bipe no JMS
+  filtroBase: "",       // painel: só a base escolhida ("" = todas)
   buscaMotorista: "",
   pacoteAberto: null,
 };
@@ -66,7 +67,7 @@ const el = {
     resolvidos: $("screenResolvidos"), motoristas: $("screenMotoristas"),
     fechamento: $("screenFechamento"),
   },
-  stats: $("stats"), grupos: $("grupos"),
+  stats: $("stats"), grupos: $("grupos"), filtroBases: $("filtroBases"),
   listaPacotes: $("listaPacotes"), busca: $("buscaPacote"), filtroSituacao: $("filtroSituacao"),
   dropzone: $("dropzone"), dropzoneTitle: $("dropzoneTitle"), fileInput: $("fileInput"),
   importResult: $("importResult"), baseAtual: $("baseAtual"), baseAtualKv: $("baseAtualKv"),
@@ -202,7 +203,7 @@ function renderTudo() {
       .filter((p) => !cobradoHoje(state.atividades, p.pkgId)).length + state.aguardando.length;
   }
 
-  renderPainel(el, state.packages, state.aguardando);
+  renderPainel(el, state.packages, state.aguardando, state.filtroBase);
   renderListaPacotes();
   renderCobranca(el.cobranca, state.byDriver, state.motorista, state.cobrancas, state.enrichment, state.contatos);
   renderGalpao(el.galpao, state.packages, state.tratativas);
@@ -608,6 +609,14 @@ $("btnLimparBase").addEventListener("click", async () => {
   el.importResult.hidden = true;
   irPara("importar");
   toast("Histórico de eventos apagado.", "good");
+});
+
+// filtro de responsabilidade por base, no topo do Painel de Ação
+el.filtroBases?.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-base]");
+  if (!btn) return;
+  state.filtroBase = btn.dataset.base;
+  renderPainel(el, state.packages, state.aguardando, state.filtroBase);
 });
 
 document.addEventListener("click", async (e) => {

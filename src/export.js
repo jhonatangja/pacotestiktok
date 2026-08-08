@@ -33,7 +33,7 @@ const csvCell = (v) => {
 /** CSV com ponto e vírgula e BOM — abre direto no Excel em português. */
 export function relatorioCsv(packages, tratativas = {}, enrichment = {}) {
   const colunas = [
-    "Pedido", "Situação", "Ação necessária", "Motorista atual", "Horas com motorista",
+    "Pedido", "Base responsável", "Situação", "Ação necessária", "Motorista atual", "Horas com motorista",
     "Despachos", "Rebipes sem tratativa", "Horas na base", "Horas até expedir da base",
     "Horas sem movimento", "Dias desde a coleta", "Cidade", "Destinatário", "Endereço", "Valor",
     "Tratativa", "Responsável", "Prazo", "Último registro", "Alertas",
@@ -47,6 +47,7 @@ export function relatorioCsv(packages, tratativas = {}, enrichment = {}) {
 
     return [
       p.pkgId,
+      p.baseResponsavel ?? "",
       SITUACAO_META[p.situacao]?.label ?? p.situacao,
       SITUACAO_META[p.situacao]?.acao ?? "",
       p.motoristaAtual ?? "",

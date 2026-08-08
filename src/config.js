@@ -195,6 +195,32 @@ export const CORTE_ENTREGA_HOJE = 14;
 // foi recebido POR OUTRA base — momento em que ele sai da sua responsabilidade.
 export const BASE_OPERACAO = "F RVD - GO";
 
+// A operação tem MAIS DE UMA base em Rio Verde. Um `bipe de recebimento` numa
+// delas não tira o pacote do circuito — só muda de quem é a responsabilidade.
+// Só um recebimento numa base FORA desta lista encerra o caso aqui.
+//
+// A primeira da lista é a base principal (`BASE_OPERACAO`).
+export const BASES_OPERACAO = [
+  "F RVD - GO",
+  "F RVD 02-GO",
+];
+
+// Como cada base é chamada na tela. Sem isso o operador lê "F RVD 02-GO" e
+// precisa lembrar de cabeça qual é qual.
+export const BASE_APELIDO = {
+  "F RVD - GO":  "RVD 1",
+  "F RVD 02-GO": "RVD 2",
+};
+
+const chaveBase = (b) => String(b ?? "").trim().toUpperCase().replace(/\s+/g, " ");
+const BASES_NORMALIZADAS = new Set(BASES_OPERACAO.map(chaveBase));
+
+/** A base é uma das nossas? Sem nome informado, assume que sim. */
+export const ehBasePropria = (b) => !b || BASES_NORMALIZADAS.has(chaveBase(b));
+
+/** "F RVD 02-GO" → "RVD 2". Cai no nome cru quando não houver apelido. */
+export const apelidoDaBase = (b) => BASE_APELIDO[String(b ?? "").trim()] ?? b ?? null;
+
 export const SITUACAO = {
   ENTREGUE:                "ENTREGUE",
   RECEBIDO_OUTRA_BASE:     "RECEBIDO_OUTRA_BASE",

@@ -23,6 +23,24 @@ TikTok Shop é entrega no mesmo dia, então **todo pacote que está com motorist
 pendência viva** — mesmo o que saiu há uma hora. O prazo de 8h muda a cor do cartão,
 não a necessidade de cobrar.
 
+## Duas bases em Rio Verde
+
+A operação tem **F RVD - GO** (RVD 1) e **F RVD 02-GO** (RVD 2). Um pacote que passa de uma
+para a outra **não sai do circuito** — só muda de quem é a responsabilidade. Quem responde é
+sempre a **última das nossas bases que deu `bipe de recebimento`** nele.
+
+Só um recebimento numa base de **fora** dessa lista encerra o caso aqui. A lista está em
+`BASES_OPERACAO` (`src/config.js`).
+
+Para não misturar as duas:
+
+- cada cartão leva o carimbo da base — **RVD 1** discreto, **RVD 2** destacado, porque o que
+  precisa saltar aos olhos é a exceção, não a regra;
+- pacote que trocou de base ganha **⇄** no carimbo;
+- o Painel de Ação tem uma barra **Responsabilidade** no topo que filtra por base, e os
+  indicadores acompanham o filtro — senão o número diria uma coisa e a lista mostraria outra;
+- o relatório CSV tem a coluna **Base responsável**.
+
 ## O relógio da base
 
 A idade de um pacote conta a partir do `bipe de recebimento` — quando ele chega em
