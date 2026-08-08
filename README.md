@@ -44,10 +44,11 @@ outra "sem baixa"), porque a segunda lista ensinava o motorista a tratá-la como
 | Horário da cobrança | O que a mensagem exige |
 |---|---|
 | Antes das 14h | entrega **hoje**; se não der, a problemática registrada **com a evidência da tentativa de contato** |
-| A partir das 14h | entrega **amanhã pela manhã, na primeira rota**; a problemática registrada ainda hoje, com a evidência |
+| A partir das 14h | **tentar hoje ainda** e, não dando pelo horário, entregar **amanhã logo pela manhã, na primeira rota**; a problemática registrada ainda hoje, com a evidência |
 
-Depois das 14h não cabe mais uma rota. Exigir entrega no mesmo dia àquela altura só produz
-um "sim" que ninguém cumpre — e uma promessa quebrada não cobra ninguém.
+Depois das 14h a ordem continua sendo **tentar hoje** — o horário não desobriga ninguém. A
+manhã seguinte entra como alternativa para o que de fato não couber mais no dia, não como
+dispensa do dia.
 
 O que **não** muda com o horário é a evidência: sem o print da ligação ou da conversa, a
 problemática registrada no sistema não sustenta nada quando o cliente reclamar. A tela de

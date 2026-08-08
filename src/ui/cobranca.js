@@ -98,8 +98,8 @@ function detalheMotorista(m, cobrancas, enrichment, contatos = {}) {
         <p class="charge__prazo">${prazoDaCobranca().antesDoCorte
           ? `⏰ Antes das ${CORTE_ENTREGA_HOJE}h — a mensagem vai exigir <b>entrega hoje</b>,
              ou a problemática registrada com a evidência da tentativa de contato.`
-          : `⏰ Depois das ${CORTE_ENTREGA_HOJE}h — a mensagem vai pedir <b>entrega amanhã pela manhã</b>,
-             e a problemática registrada ainda hoje com a evidência.`}</p>
+          : `⏰ Depois das ${CORTE_ENTREGA_HOJE}h — a mensagem vai pedir para <b>tentar hoje ainda</b> e,
+             não dando pelo horário, <b>entregar amanhã logo pela manhã</b>.`}</p>
         <div class="charge__actions">
           <button class="btn btn--primary btn--zap" id="btnCobrarZap" ${zapOk ? "" : "disabled"}>
             📲 Cobrar no WhatsApp

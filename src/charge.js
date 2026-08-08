@@ -43,28 +43,31 @@ export function saudacao(agora = new Date()) {
 /**
  * O prazo que a cobrança exige depende da hora em que ela sai.
  *
- * Antes do corte ainda cabe uma rota: o pacote é cobrado para HOJE. Depois do
- * corte, exigir entrega no mesmo dia só produz um "sim" que ninguém cumpre —
- * então a cobrança pede a primeira rota da manhã seguinte.
+ * Antes do corte, entrega hoje e ponto. Depois do corte a ordem continua sendo
+ * TENTAR HOJE — o horário não desobriga ninguém —, e a manhã seguinte só entra
+ * como alternativa para o que de fato não couber mais no dia.
  *
  * O que NÃO muda com a hora é a exigência da evidência: sem o print da
  * tentativa de contato, a problemática registrada no sistema não sustenta nada
  * quando o cliente reclamar.
  */
-export function prazoDaCobranca(agora = new Date(), corte = CORTE_ENTREGA_HOJE) {
+export function prazoDaCobranca(agora = new Date(), { quantidade = 0, corte = CORTE_ENTREGA_HOJE } = {}) {
   const antesDoCorte = agora.getHours() < corte;
+  const um = quantidade === 1;
 
   return {
     antesDoCorte,
     corte,
     linhas: antesDoCorte
       ? [
-          `⏰ *Precisam ser entregues HOJE.*`,
+          um ? `⏰ *Precisa ser entregue HOJE.*` : `⏰ *Precisam ser entregues HOJE.*`,
           `Se não conseguir entregar, registre a problemática no sistema *com a evidência da tentativa de contato* (print da ligação ou da conversa). Sem a evidência, a problemática não me protege quando o cliente reclamar.`,
         ]
       : [
-          `⏰ *Já passou das ${corte}h — preciso destes pacotes entregues AMANHÃ PELA MANHÃ, na primeira rota.*`,
-          `Se você tentou hoje e não deu, registre a problemática no sistema ainda hoje *com a evidência da tentativa de contato* (print da ligação ou da conversa).`,
+          `⏰ *Tente entregar ainda hoje.* Se não der mais por causa do horário, ${
+            um ? "precisa ser entregue" : "precisam ser entregues"
+          } AMANHÃ LOGO PELA MANHÃ, na primeira rota.`,
+          `Se você tentou e não conseguiu entregar, registre a problemática no sistema ainda hoje *com a evidência da tentativa de contato* (print da ligação ou da conversa).`,
         ],
   };
 }
@@ -94,7 +97,7 @@ export function mensagemCobranca(m, enrichment = {}, agora = new Date()) {
     l.push("");
     for (const d of abertos) l.push(itemPacote(d, enrichment, true));
     l.push("");
-    l.push(...prazoDaCobranca(agora).linhas);
+    l.push(...prazoDaCobranca(agora, { quantidade: abertos.length }).linhas);
     l.push("");
   }
 
@@ -150,7 +153,7 @@ export function mensagemFechamentoMotorista(m, enrichment = {}, pacotes = null, 
   }
 
   l.push("");
-  l.push(...prazoDaCobranca(agora).linhas);
+  l.push(...prazoDaCobranca(agora, { quantidade: lista.length }).linhas);
   l.push("");
   l.push(`Preciso que você ATUALIZE NO JMS a situação atual de cada um ainda hoje.`);
   l.push("");

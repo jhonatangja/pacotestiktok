@@ -256,8 +256,16 @@ const msgManha = mensagemCobranca(alvoCobranca, {}, manha);
 const msgTarde = mensagemCobranca(alvoCobranca, {}, tarde);
 check("mensagem da manhã exige entrega hoje", msgManha.includes("entregues HOJE"), true);
 check("mensagem da manhã não fala de amanhã", msgManha.includes("AMANHÃ"), false);
-check("mensagem da tarde exige a manhã seguinte", msgTarde.includes("AMANHÃ PELA MANHÃ"), true);
-check("mensagem da tarde não exige entrega hoje", msgTarde.includes("entregues HOJE"), false);
+// depois das 14h a ordem continua sendo tentar hoje — a manhã seguinte é o
+// plano B para o que não couber mais no dia, não uma dispensa do dia
+check("mensagem da tarde manda tentar hoje", msgTarde.includes("Tente entregar ainda hoje"), true);
+check("mensagem da tarde dá a manhã seguinte como alternativa",
+  msgTarde.includes("AMANHÃ LOGO PELA MANHÃ"), true);
+check("mensagem da tarde não trata o dia como perdido",
+  msgTarde.includes("Já passou das"), false);
+// singular e plural saem certos nos dois horários
+check("prazo no singular", prazoDaCobranca(manha, { quantidade: 1 }).linhas[0].includes("Precisa ser entregue"), true);
+check("prazo no plural", prazoDaCobranca(manha, { quantidade: 3 }).linhas[0].includes("Precisam ser entregues"), true);
 // a evidência é exigida nos dois horários — é ela que sustenta a problemática
 check("evidência exigida de manhã", msgManha.includes("evidência da tentativa de contato"), true);
 check("evidência exigida à tarde", msgTarde.includes("evidência da tentativa de contato"), true);
