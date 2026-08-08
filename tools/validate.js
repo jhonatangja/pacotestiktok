@@ -22,7 +22,7 @@ import { aguardandoImportacao } from "../src/aguardando.js";
 import { normalizarTelefone, telefoneValido, linkWhatsApp } from "../src/contatos.js";
 import { pacotesDoGalpao } from "../src/ui/galpao.js";
 import { listarMotoristas } from "../src/ui/motoristas.js";
-import { pacotesResolvidos } from "../src/ui/resolvidos.js";
+import { pacotesResolvidos, tempoDeResolucao, doPeriodo } from "../src/ui/resolvidos.js";
 import { noCircuito } from "../src/ui/fechamento.js";
 import { daBase } from "../src/ui/painel.js";
 import { ACAO, definirAutor, novaAtividade, cobradoHoje } from "../src/atividades.js";
@@ -359,6 +359,40 @@ check("o assistente entra no cadastro de responsáveis",
   listarMotoristas(comConta.packages, comConta.byDriver, {}).some((m) => m.driver === assistente), true);
 check("a conta do JMS some do cadastro",
   listarMotoristas(comConta.packages, comConta.byDriver, {}).some((m) => m.driver === contaJms), false);
+
+// tempo de resolução: da entrada no circuito até o desfecho
+const entregaMedia = {
+  id: `${alvoEntrega}|sintetico|assinatura2`, pkgId: alvoEntrega,
+  ts: agora, tsISO: new Date(agora).toISOString(),
+  rawType: "assinatura de encomenda", fact: FACT.ENTREGA, stage: STAGE.ENTREGUE,
+  label: "Entregue ao cliente", base: "F RVD - GO",
+  scanner: "F RVD - CONFERENTE", courier: "F RVD - MOTORISTA DE TESTE",
+};
+const paraMedia = buildPackages([...limpos, entregaMedia], { now: agora + 5 * 3600000 });
+const medido = paraMedia.packages.find((p) => p.pkgId === alvoEntrega);
+check("o tempo de resolução conta do recebimento na base",
+  medido.horasParaResolver, medido.horasNaBase != null
+    ? Math.round(((agora - medido.recebidoNaBaseEm) / 3600000) * 10) / 10 : null);
+check("pacote em aberto não tem tempo de resolução",
+  packages.filter((p) => !p.resolvido).every((p) => p.horasParaResolver == null), true);
+
+const resolvidosParaMedia = pacotesResolvidos(paraMedia.packages);
+const t = tempoDeResolucao(resolvidosParaMedia);
+check("a média é apurada sobre os encerrados", t.n > 0, true);
+check("mediana fica entre o mais rápido e o mais demorado",
+  t.mediana >= t.maisRapido && t.mediana <= t.maisDemorado, true);
+check("média fica entre o mais rápido e o mais demorado",
+  t.media >= t.maisRapido && t.media <= t.maisDemorado, true);
+check("sem encerrado não há média", tempoDeResolucao([]), null);
+
+// o filtro de período recorta os encerrados pela data do desfecho
+const agoraFiltro = agora + 5 * 3600000;
+check("filtro de 7 dias não inclui o que foi encerrado há mais tempo",
+  doPeriodo([{ resolvidaEm: agoraFiltro - 9 * 86400000 }], "7", agoraFiltro).length, 0);
+check("filtro de 7 dias inclui o que foi encerrado ontem",
+  doPeriodo([{ resolvidaEm: agoraFiltro - 86400000 }], "7", agoraFiltro).length, 1);
+check("filtro vazio devolve todos os encerrados",
+  doPeriodo([{ resolvidaEm: 1 }, { resolvidaEm: 2 }], "", agoraFiltro).length, 2);
 
 // a fila de cobrança lista só quem está com o pacote AGORA
 check("ninguém sem pacote aberto entra na cobrança",

@@ -6,11 +6,23 @@
 //
 // Um caso resolvido que receber bipe novo NÃO fica aqui — ele reabre sozinho
 // e reaparece nas pendências com a marca "Voltou a se mover". Ver domain.js.
+//
+// É também a única tela que olha para trás: quanto tempo a operação leva para
+// resolver um pacote, do bipe de recebimento até o desfecho.
 // ---------------------------------------------------------------------------
 
 import { DESFECHO_META } from "../tratativa.js";
-import { escapeHtml, tomVars, duracao, dataHoraLonga, iniciais } from "./format.js";
+import { escapeHtml, tomVars, duracao, dataCurta, dataHoraLonga, iniciais } from "./format.js";
 import { listaVazia } from "./cards.js";
+
+/** Janelas do filtro. `dias: 0` = tudo que já foi encerrado. */
+export const PERIODOS = [
+  { id: "7",   label: "7 dias",  dias: 7 },
+  { id: "30",  label: "30 dias", dias: 30 },
+  { id: "",    label: "Tudo",    dias: 0 },
+];
+
+const DIA = 86400000;
 
 /** Como o pacote saiu do circuito — inclui a saída automática por outra base. */
 function desfechoDe(p) {
@@ -27,44 +39,99 @@ function desfechoDe(p) {
 
 export const pacotesResolvidos = (packages) => packages.filter((p) => p.resolvido);
 
-export function renderResolvidos(el, packages, tratativas) {
-  const lista = pacotesResolvidos(packages)
-    .sort((a, b) => (b.resolvidaEm ?? 0) - (a.resolvidaEm ?? 0));
+/** Encerrados dentro da janela escolhida. "" = todos. */
+export function doPeriodo(lista, periodo, agora = Date.now()) {
+  const dias = PERIODOS.find((p) => p.id === periodo)?.dias ?? 0;
+  if (!dias) return lista;
+  const limite = agora - dias * DIA;
+  return lista.filter((p) => p.resolvidaEm != null && isFinite(p.resolvidaEm) && p.resolvidaEm >= limite);
+}
 
-  if (!lista.length) {
+/**
+ * Quanto tempo a operação levou para resolver.
+ *
+ * A mediana anda junto com a média de propósito: um único pacote esquecido por
+ * 15 dias puxa a média inteira e faz parecer que a operação toda vai mal. A
+ * mediana mostra o caso típico; a distância entre as duas é o tamanho da cauda.
+ */
+export function tempoDeResolucao(lista) {
+  const horas = lista.map((p) => p.horasParaResolver).filter((h) => h != null).sort((a, b) => a - b);
+  if (!horas.length) return null;
+
+  const meio = Math.floor(horas.length / 2);
+  return {
+    n: horas.length,
+    media: horas.reduce((s, h) => s + h, 0) / horas.length,
+    mediana: horas.length % 2 ? horas[meio] : (horas[meio - 1] + horas[meio]) / 2,
+    maisRapido: horas[0],
+    maisDemorado: horas[horas.length - 1],
+    // o que a operação promete: mesmo dia
+    noMesmoDia: horas.filter((h) => h <= 24).length,
+  };
+}
+
+export function renderResolvidos(el, packages, tratativas, periodo = "") {
+  const todos = pacotesResolvidos(packages);
+
+  if (!todos.length) {
     el.innerHTML = listaVazia(
       "Nenhum caso encerrado ainda. Marque uma tratativa como resolvida e ela vem para cá.", "📁");
     return;
   }
 
+  const lista = doPeriodo(todos, periodo)
+    .sort((a, b) => (b.resolvidaEm ?? 0) - (a.resolvidaEm ?? 0));
+
+  const t = tempoDeResolucao(lista);
   const entregues = lista.filter((p) => p.entregueEm).length;
-  const comDono = lista.filter((p) => p.responsavelResolucao).length;
+  const semRelogio = lista.length - (t?.n ?? 0);
 
   el.innerHTML = `
+    <div class="basebar" style="margin-bottom:18px">
+      <span class="basebar__label">Encerrados em</span>
+      ${PERIODOS.map((p) => `
+        <button class="basebtn ${periodo === p.id ? "is-on" : ""}" data-periodo="${p.id}">
+          ${escapeHtml(p.label)}
+          <span class="basebtn__n">${doPeriodo(todos, p.id).length}</span>
+        </button>`).join("")}
+    </div>
+
+    ${!lista.length ? listaVazia("Nenhum caso encerrado nesse período.", "📁") : `
     <div class="stats" style="margin-bottom:22px">
-      <div class="stat" style="--accent:var(--ok)">
-        <span class="stat__value" style="color:var(--ok)">${lista.length}</span>
-        <span class="stat__label">casos encerrados</span>
+      <div class="stat" style="--accent:var(--navy)">
+        <span class="stat__value">${t ? duracao(t.media) : "—"}</span>
+        <span class="stat__label">tempo médio para resolver</span>
       </div>
-      ${entregues ? `
       <div class="stat" style="--accent:var(--ok)">
-        <span class="stat__value" style="color:var(--ok)">${entregues}</span>
-        <span class="stat__label">entregues ao cliente</span>
-      </div>` : ""}
+        <span class="stat__value" style="color:var(--ok)">${t ? duracao(t.mediana) : "—"}</span>
+        <span class="stat__label">tempo típico (mediana)</span>
+      </div>
+      <div class="stat" style="--accent:var(--atrasado)">
+        <span class="stat__value" style="color:var(--atrasado)">${t ? duracao(t.maisDemorado) : "—"}</span>
+        <span class="stat__label">o mais demorado</span>
+      </div>
+      <div class="stat" style="--accent:var(--ok)">
+        <span class="stat__value" style="color:var(--ok)">${t ? t.noMesmoDia : 0}</span>
+        <span class="stat__label">resolvidos em até 24h</span>
+      </div>
       <div class="stat" style="--accent:var(--transito)">
-        <span class="stat__value">${comDono}</span>
-        <span class="stat__label">com responsável registrado</span>
+        <span class="stat__value">${lista.length}</span>
+        <span class="stat__label">casos encerrados${entregues ? ` · ${entregues} entregues` : ""}</span>
       </div>
     </div>
 
     <p class="hint" style="margin-bottom:14px">
-      Clique em qualquer pacote para reabrir — basta voltar o status para "Aberta".
-      Se um pacote resolvido receber bipe novo, ele volta sozinho para as pendências.
-      ${entregues ? `Pacote com <b>assinatura do cliente</b> não reabre: a baixa é do próprio JMS.` : ""}
+      O relógio começa no <b>bipe de recebimento</b> na sua base — o tempo de trânsito
+      nacional que veio antes não entra na conta.
+      ${semRelogio ? `<b>${semRelogio}</b> caso(s) sem recebimento registrado ficaram de fora da média. ` : ""}
+      Clique em qualquer pacote para reabrir. Pacote com <b>assinatura do cliente</b> não
+      reabre: a baixa é do próprio JMS.
     </p>
 
-    <div class="cards">${lista.map((p) => card(p, tratativas[p.pkgId])).join("")}</div>`;
+    <div class="cards">${lista.map((p) => card(p, tratativas[p.pkgId])).join("")}</div>`}`;
 }
+
+// ---------------------------------------------------------------------------
 
 function card(p, t) {
   const notas = t?.notas ?? [];
@@ -88,9 +155,12 @@ function card(p, t) {
       </div>` : ""}
 
       <div class="pkg__facts">
-        <span>${p.entregueEm ? "Assinado" : "Encerrado"} ${p.resolvidaEm && isFinite(p.resolvidaEm) ? "em " + dataHoraLonga(p.resolvidaEm) : "sem data"}</span>
-        ${p.entregueEm ? `<span>Baixa automática pelo <b>JMS</b></span>`
-          : `<span>Era: <b>${escapeHtml(p.situacaoLabel)}</b></span>`}
+        ${p.horasParaResolver != null
+          ? `<span>Resolvido em <b>${duracao(p.horasParaResolver)}</b></span>`
+          : `<span>Sem tempo de resolução apurado</span>`}
+        ${p.recebidoNaBaseEm ? `<span>Entrou ${dataCurta(p.recebidoNaBaseEm)}</span>` : ""}
+        <span>${p.entregueEm ? "Assinado" : "Encerrado"} ${
+          p.resolvidaEm && isFinite(p.resolvidaEm) ? dataHoraLonga(p.resolvidaEm) : "sem data"}</span>
         ${notas.length ? `<span><b>${notas.length}</b> registro${notas.length > 1 ? "s" : ""}</span>` : ""}
       </div>
 

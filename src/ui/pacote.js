@@ -38,7 +38,10 @@ export function renderPacote(el, p, tratativa, dadosCliente, atividades = []) {
         <dt>Destino</dt><dd>${escapeHtml(p.destCity ?? "—")}${p.destState ? "/" + escapeHtml(p.destState) : ""}${p.destZip ? ` · ${escapeHtml(p.destZip)}` : ""}</dd>
         <dt>Origem</dt><dd>${escapeHtml(p.originBase ?? "—")}</dd>
         ${p.coletadoEm ? `<dt>Coletado</dt><dd>${dataHoraLonga(p.coletadoEm)} · há ${p.diasDesdeColeta}d</dd>` : ""}
-        ${p.recebidoNaBaseEm ? `<dt>Recebido na base</dt><dd>${dataHoraLonga(p.recebidoNaBaseEm)} · há ${duracao(p.horasNaBase)}</dd>` : ""}
+        ${p.recebidoNaBaseEm ? `<dt>Entrou no circuito</dt><dd>${dataHoraLonga(p.recebidoNaBaseEm)}${
+          p.baseResponsavel ? ` · ${escapeHtml(p.baseResponsavel)}` : ""} · há ${duracao(p.horasNaBase)}</dd>` : ""}
+        ${p.horasParaResolver != null
+          ? `<dt>Levou para resolver</dt><dd><b>${duracao(p.horasParaResolver)}</b> da entrada até o desfecho</dd>` : ""}
         ${p.horasAteExpedir != null ? `<dt>Levou para expedir</dt><dd>${duracao(p.horasAteExpedir)}</dd>` : ""}
         <dt>Último bipe</dt><dd>${escapeHtml(p.ultimoEvento)} · ${dataHoraLonga(p.ultimoEventoEm)}</dd>
         <dt>Parado há</dt><dd>${duracao(p.horasSemMovimento)}</dd>

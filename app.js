@@ -54,6 +54,7 @@ const state = {
   atividades: [],       // log append-only de quem fez o quê
   aguardando: [],       // códigos lançados à mão, ainda sem bipe no JMS
   filtroBase: "",       // painel: só a base escolhida ("" = todas)
+  periodoResolvidos: "30",  // resolvidos: janela do tempo médio de resolução
   buscaMotorista: "",
   pacoteAberto: null,
 };
@@ -207,7 +208,7 @@ function renderTudo() {
   renderListaPacotes();
   renderCobranca(el.cobranca, state.byDriver, state.motorista, state.cobrancas, state.enrichment, state.contatos);
   renderGalpao(el.galpao, state.packages, state.tratativas);
-  renderResolvidos(el.resolvidos, state.packages, state.tratativas);
+  renderResolvidos(el.resolvidos, state.packages, state.tratativas, state.periodoResolvidos);
   renderMotoristas(el.motoristas, state.packages, state.byDriver, state.contatos, state.buscaMotorista);
   renderFechamento(el.fechamento, state.packages, state.byDriver, state.contatos,
                    state.atividades, state.aguardando);
@@ -609,6 +610,14 @@ $("btnLimparBase").addEventListener("click", async () => {
   el.importResult.hidden = true;
   irPara("importar");
   toast("Histórico de eventos apagado.", "good");
+});
+
+// janela do tempo médio de resolução, na aba Resolvidos
+el.resolvidos.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-periodo]");
+  if (!btn) return;
+  state.periodoResolvidos = btn.dataset.periodo;
+  renderResolvidos(el.resolvidos, state.packages, state.tratativas, state.periodoResolvidos);
 });
 
 // filtro de responsabilidade por base, no topo do Painel de Ação

@@ -203,6 +203,16 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
     : emOutraBase ? "outra_base"
     : (finalizadoPeloOperador ? (tratativa?.desfecho ?? null) : null);
 
+  // Quanto tempo o pacote levou da entrada no circuito até o desfecho. Conta do
+  // `bipe de recebimento` na nossa base, o mesmo relógio das pendências — senão
+  // a média mediria o trânsito nacional, que não é responsabilidade daqui.
+  const fimEm = entrega ? entrega.ts
+    : emOutraBase ? emOutraBase.ts
+    : (resolvidaEm != null && isFinite(resolvidaEm) ? resolvidaEm : null);
+  const horasParaResolver = (resolvido && fimEm != null && recebidoNaBaseEm != null)
+    ? round1(horas(fimEm - recebidoNaBaseEm))
+    : null;
+
   // --- flags (acumuláveis)
   const flags = [];
 
@@ -289,7 +299,10 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
     transferidoEntreBases,
 
     coletadoEm,
+    // O dia em que o pacote entrou no circuito desta base — o marco zero de
+    // tudo que o sistema cobra.
     recebidoNaBaseEm,
+    horasParaResolver,
     horasNaBase,
     horasAteExpedir,
     horasSemMovimento,

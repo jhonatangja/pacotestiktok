@@ -44,6 +44,12 @@ export function dataHora(ts) {
     { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
+/** Só o dia: "01/08". Para carimbar entrada no circuito sem poluir o cartão. */
+export function dataCurta(ts) {
+  if (ts == null) return "—";
+  return new Date(ts).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+
 export function dataHoraLonga(ts) {
   if (ts == null) return "—";
   return new Date(ts).toLocaleString("pt-BR",

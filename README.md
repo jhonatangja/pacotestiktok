@@ -50,6 +50,27 @@ e por isso não entra nem no cartão nem no cálculo de prioridade: um pacote qu
 
 A data de coleta continua visível no detalhe do pacote, como contexto.
 
+Cada cartão mostra **desde quando** o pacote está no circuito (`No circuito desde 31/07 · há
+8d`). O tempo decorrido responde a urgência; a data é o que se usa para conferir com a
+planilha e para dizer ao cliente desde quando o pacote está parado aqui.
+
+## Quanto tempo a operação leva para resolver
+
+A aba **Resolvidos** mede o ciclo fechado: do `bipe de recebimento` até o desfecho. Filtro
+por janela (**7 dias / 30 dias / Tudo**) e cinco números:
+
+| Indicador | Por que está lá |
+|---|---|
+| **tempo médio** | o número que se leva para a reunião |
+| **tempo típico (mediana)** | um pacote esquecido por 15 dias puxa a média inteira; a mediana mostra o caso comum, e a distância entre as duas é o tamanho da cauda |
+| **o mais demorado** | o pior caso do período, que é onde está o problema |
+| **resolvidos em até 24h** | TikTok é entrega no mesmo dia — este é o número que deveria ser o total |
+| **casos encerrados** | o tamanho da amostra, para não tirar conclusão de 2 pacotes |
+
+Cada cartão traz **Resolvido em Xd Yh** e a data de entrada. Casos sem `bipe de recebimento`
+registrado ficam fora da média (e a tela diz quantos são) — medir o que não tem marco zero
+seria inventar número.
+
 ## A cobrança do motorista
 
 **A fila lista só quem está com pacote na mão agora.** Um despacho encerrado não é dívida
@@ -208,7 +229,7 @@ node tools/validate.js
    você registrar à mão. Guarde o WhatsApp uma vez e cobre com um clique de qualquer tela.
 6. **Fechamento** — a varredura do fim do dia: tudo que ainda está no circuito, com
    cobrança de um clique por motorista exigindo a atualização da situação no JMS.
-7. **Resolvidos** — o arquivo dos casos encerrados, fora do caminho.
+7. **Resolvidos** — o arquivo dos casos encerrados, e o **tempo de resolução** da operação.
 6. **Copiar códigos para reconsultar** — devolve a lista de pedidos ainda em aberto,
    pronta para colar na consulta do JMS no dia seguinte.
 

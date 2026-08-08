@@ -7,7 +7,7 @@
 
 import { SITUACAO, BASE_OPERACAO, apelidoDaBase } from "../config.js";
 import {
-  escapeHtml, TOM, tomVars, duracao, iniciais, flagLabel, flagHint, flagClasse,
+  escapeHtml, TOM, tomVars, duracao, dataCurta, iniciais, flagLabel, flagHint, flagClasse,
 } from "./format.js";
 
 /**
@@ -16,7 +16,12 @@ import {
  * enquanto o pacote ainda não chegou.
  */
 function idade(p) {
-  if (p.horasNaBase != null) return `<span>Recebido há <b>${duracao(p.horasNaBase)}</b></span>`;
+  // A data de entrada aparece junto do tempo decorrido: "há 7d" responde a
+  // urgência, "desde 01/08" é o que se usa para conferir com a planilha e para
+  // dizer ao cliente desde quando o pacote está parado aqui.
+  if (p.horasNaBase != null) {
+    return `<span>No circuito desde <b>${dataCurta(p.recebidoNaBaseEm)}</b> · há <b>${duracao(p.horasNaBase)}</b></span>`;
+  }
   if (p.diasDesdeColeta != null) return `<span>Em trânsito · coletado há ${p.diasDesdeColeta}d</span>`;
   return "";
 }

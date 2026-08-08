@@ -34,7 +34,8 @@ const csvCell = (v) => {
 export function relatorioCsv(packages, tratativas = {}, enrichment = {}) {
   const colunas = [
     "Pedido", "Base responsável", "Situação", "Ação necessária", "Motorista atual", "Horas com motorista",
-    "Despachos", "Rebipes sem tratativa", "Horas na base", "Horas até expedir da base",
+    "Despachos", "Rebipes sem tratativa", "Entrou no circuito", "Horas para resolver",
+    "Horas na base", "Horas até expedir da base",
     "Horas sem movimento", "Dias desde a coleta", "Cidade", "Destinatário", "Endereço", "Valor",
     "Tratativa", "Responsável", "Prazo", "Último registro", "Alertas",
   ];
@@ -54,6 +55,8 @@ export function relatorioCsv(packages, tratativas = {}, enrichment = {}) {
       p.horasComMotorista ?? "",
       p.totalDespachos,
       rebipes,
+      p.recebidoNaBaseEm ? new Date(p.recebidoNaBaseEm).toLocaleString("pt-BR") : "",
+      p.horasParaResolver ?? "",
       p.horasNaBase ?? "",
       p.horasAteExpedir ?? "",
       p.horasSemMovimento,
