@@ -762,6 +762,19 @@ el.fechamento.addEventListener("click", async (e) => {
     return;
   }
 
+  // códigos do circuito, um por linha — para colar direto na consulta do JMS
+  if (e.target.closest("#btnCopiarCircuito")) {
+    const codigos = noCircuito(state.packages).map((p) => p.pkgId);
+    if (!codigos.length) { toast("Nenhum pacote no circuito.", "good"); return; }
+    try {
+      await navigator.clipboard.writeText(codigos.join("\n"));
+      toast(`${codigos.length} códigos copiados — cole na consulta do JMS.`, "good");
+    } catch {
+      toast("Não foi possível copiar. Use o relatório em CSV na aba Importar.", "bad");
+    }
+    return;
+  }
+
   if (e.target.closest("#btnResumoFechamento")) {
     const msg = mensagemFechamento(state.packages, state.atividades);
     const ta = $("resumoFechamento");

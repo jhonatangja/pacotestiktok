@@ -447,6 +447,12 @@ p { margin: 0; }
 .acao__quem b { color: var(--tone); font-weight: 700; }
 
 /* ----------------------------------------------------------- fechamento */
+.fech-acoes {
+  display: flex; align-items: center; gap: 11px; flex-wrap: wrap;
+  padding: 13px 15px; margin-bottom: 20px; border-radius: var(--radius);
+  background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow);
+}
+
 .fechamento-lista { display: flex; flex-direction: column; gap: 9px; }
 .fech-row {
   display: flex; align-items: center; gap: 11px;

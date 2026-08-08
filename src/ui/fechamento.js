@@ -65,6 +65,13 @@ export function renderFechamento(el, packages, byDriver, contatos, atividades) {
       </div>
     </div>
 
+    <div class="fech-acoes">
+      <button class="btn btn--primary" id="btnCopiarCircuito">
+        Copiar os ${circuito.length} códigos do circuito
+      </button>
+      <span class="hint">Um por linha, pronto para colar na consulta do JMS.</span>
+    </div>
+
     ${pendentes.length === 0 ? `
       <div class="card card--ok" style="margin-bottom:20px">
         <strong>Todos os ${circuito.length} pacotes do circuito já foram cobrados hoje.</strong>
