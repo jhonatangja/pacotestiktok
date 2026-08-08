@@ -25,6 +25,7 @@ import { pacotesResolvidos } from "../src/ui/resolvidos.js";
 import { noCircuito } from "../src/ui/fechamento.js";
 import { ACAO, definirAutor, novaAtividade, cobradoHoje } from "../src/atividades.js";
 import { FLAG, SITUACAO, FACT, STAGE, SCAN_TYPES, FECHAMENTOS } from "../src/config.js";
+import { VERSAO, ARQUIVOS } from "../src/versao.js";
 
 const require = createRequire(import.meta.url);
 const XLSX = require("../vendor/xlsx.full.min.js");
@@ -299,6 +300,18 @@ check("entregue não conta como voltou a se mover",
   entregue.flags.includes(FLAG.MOVIMENTO_APOS_RESOLVIDA), false);
 check("entregue sai da lista de reconsultar no JMS",
   codigosParaReconsultar(comEntrega.packages, {}).includes(alvoEntrega), false);
+
+// a lista de arquivos da auto-atualização não pode ficar para trás: um módulo
+// fora dela continuaria velho no cache depois de publicar
+const modulos = [];
+for (const dir of ["src", "src/ui"]) {
+  for (const f of readdirSync(join(raiz, dir))) {
+    if (f.endsWith(".js")) modulos.push(`${dir}/${f}`);
+  }
+}
+const faltando = modulos.filter((m) => !ARQUIVOS.includes(m));
+check("auto-atualização cobre todos os módulos", faltando.join(",") || "nenhum", "nenhum");
+check("versão tem formato de data", /^\d{4}-\d{2}-\d{2}\.\d+$/.test(VERSAO), true);
 
 // cobrança: todo pacote no circuito é cliente esperando, e o prazo exigido
 // muda sozinho no corte das 14h

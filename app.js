@@ -27,6 +27,7 @@ import { cardPacote, listaVazia } from "./src/ui/cards.js";
 import { escapeHtml, dataHoraLonga } from "./src/ui/format.js";
 import { normalizarTelefone, telefoneValido, linkWhatsApp } from "./src/contatos.js";
 import { usarSupabase, usuarioParaEmail, emailParaUsuario } from "./src/supabase-config.js";
+import { VERSAO, atualizarSeVelho } from "./src/versao.js";
 import { getSupabaseClient, createSupabaseRepo } from "./src/repo-supabase.js";
 
 const $ = (id) => document.getElementById(id);
@@ -997,6 +998,12 @@ $("btnLogout")?.addEventListener("click", async () => {
 // INIT
 // ---------------------------------------------------------------------------
 async function boot() {
+  // Antes de qualquer coisa: se este navegador está rodando código de uma
+  // publicação anterior, renovar o cache e recarregar. Sem isso o operador vê
+  // a tela velha e conclui que a mudança não funcionou.
+  if (await atualizarSeVelho((msg) => toast(msg, ""))) return;
+  $("appVersao").textContent = `v${VERSAO}`;
+
   if (usarSupabase()) {
     try {
       sbClient = await getSupabaseClient();

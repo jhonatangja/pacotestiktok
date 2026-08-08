@@ -353,6 +353,13 @@ p { margin: 0; }
   resize: none; overflow-y: auto; line-height: 1.45;
   font-family: inherit; font-variant-numeric: tabular-nums;
 }
+/* Discreto de propósito: só serve para conferir, ao telefone com alguém, se as
+   duas pessoas estão vendo a mesma versão do sistema. */
+.app-versao {
+  font-size: 11px; font-variant-numeric: tabular-nums;
+  color: var(--ink-3); opacity: .65; white-space: nowrap;
+}
+
 /* O operador precisa saber, ANTES de clicar, qual prazo a mensagem vai exigir —
    a cobrança muda de tom sozinha às 14h e ninguém deve descobrir isso depois. */
 .charge__prazo {
