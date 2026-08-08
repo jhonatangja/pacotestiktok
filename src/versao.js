@@ -18,12 +18,16 @@
 // cima da entrada antiga. Então: se a versão publicada é outra, rebuscamos cada
 // arquivo assim e recarregamos a página — aí sim o reload encontra código novo.
 //
-// A versão é lida do próprio arquivo publicado (`VERSAO = "..."` abaixo), então
-// não existe um segundo lugar para esquecer de atualizar: basta subir o número
-// daqui a cada publicação.
+// A versão é lida do próprio arquivo publicado — a constante logo abaixo —,
+// então não existe um segundo lugar para esquecer de atualizar: basta subir o
+// número daqui a cada publicação.
 // ---------------------------------------------------------------------------
 
-export const VERSAO = "2026-08-08.1";
+export const VERSAO = "2026-08-08.2";
+
+// Ancorada no início da linha: um exemplo dentro de um comentário não pode ser
+// confundido com a constante, ou o app se acharia velho para sempre.
+const RE_VERSAO = /^export const VERSAO\s*=\s*"([^"]+)"/m;
 
 /**
  * Tudo que o navegador guarda em cache e precisa ser renovado junto.
@@ -47,7 +51,7 @@ const MARCA_RELOAD = "pacotes:atualizando";
 export async function versaoPublicada() {
   const url = new URL("./versao.js", import.meta.url);
   const texto = await (await fetch(url, { cache: "no-store" })).text();
-  return texto.match(/VERSAO\s*=\s*"([^"]+)"/)?.[1] ?? null;
+  return texto.match(RE_VERSAO)?.[1] ?? null;
 }
 
 /**

@@ -312,6 +312,11 @@ for (const dir of ["src", "src/ui"]) {
 const faltando = modulos.filter((m) => !ARQUIVOS.includes(m));
 check("auto-atualização cobre todos os módulos", faltando.join(",") || "nenhum", "nenhum");
 check("versão tem formato de data", /^\d{4}-\d{2}-\d{2}\.\d+$/.test(VERSAO), true);
+// a versão é lida do texto do arquivo publicado: a regex tem que achar a
+// constante, não um exemplo dentro de um comentário
+const fonteVersao = readFileSync(join(raiz, "src/versao.js"), "utf8");
+check("versão é lida do arquivo sem confundir com comentário",
+  fonteVersao.match(/^export const VERSAO\s*=\s*"([^"]+)"/m)?.[1], VERSAO);
 
 // cobrança: todo pacote no circuito é cliente esperando, e o prazo exigido
 // muda sozinho no corte das 14h
