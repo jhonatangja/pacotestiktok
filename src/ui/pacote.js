@@ -220,11 +220,17 @@ function cardDespacho(d) {
     <div class="dispatch" style="${tomVars(r.tom)}">
       <div class="dispatch__head">
         <span class="dispatch__driver">
-          <span class="avatar" style="display:inline-grid;width:22px;height:22px;font-size:10px;vertical-align:-5px;margin-right:6px">${escapeHtml(iniciais(d.driver))}</span>${escapeHtml(d.driver)}
+          <span class="avatar" style="display:inline-grid;width:22px;height:22px;font-size:10px;vertical-align:-5px;margin-right:6px">${
+            d.contaDeTratativa ? "🏠" : escapeHtml(iniciais(d.driver))
+          }</span>${escapeHtml(d.driver)}
         </span>
         <span class="dispatch__when">${dataHora(d.startedAt)}</span>
       </div>
       <div class="dispatch__out">${r.texto}</div>
+      ${d.contaDeTratativa ? `
+      <div class="dispatch__conta">
+        Tratativa na base · bipado no JMS como <b>${escapeHtml(d.contaNoJms)}</b>
+      </div>` : ""}
     </div>`;
 }
 

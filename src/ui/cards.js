@@ -34,12 +34,7 @@ export function cardPacote(p) {
       ? `Na base há <b>${duracao(p.horasAteExpedir)}</b> sem sair`
       : `Parado há <b>${duracao(p.horasSemMovimento)}</b>`;
 
-  // A conta de tratativa aparece rotulada, nunca como se fosse um motorista —
-  // é a diferença entre "está na rua com alguém" e "está aqui dentro".
   const motorista = p.motoristaAtual ?? p.motoristasEnvolvidos[p.motoristasEnvolvidos.length - 1];
-  const naBasePor = !motorista
-    ? (p.tratadoNaBasePor ?? p.contasDeTratativa?.[p.contasDeTratativa.length - 1] ?? null)
-    : null;
 
   return `
   <button class="pkg ${p.ticketAberto ? "pkg--ticket" : ""}" style="${tomVars(p.ticketAberto ? "atrasado" : tom)}" data-pkg="${escapeHtml(p.pkgId)}">
@@ -52,13 +47,9 @@ export function cardPacote(p) {
     </div>
 
     ${motorista ? `
-    <div class="pkg__driver">
-      <span class="avatar">${escapeHtml(iniciais(motorista))}</span>
-      <span>${escapeHtml(motorista)}</span>
-    </div>` : naBasePor ? `
-    <div class="pkg__driver pkg__driver--base">
-      <span class="avatar avatar--base">🏠</span>
-      <span>Tratativa na base · ${escapeHtml(naBasePor)}</span>
+    <div class="pkg__driver${p.naBase ? " pkg__driver--base" : ""}">
+      <span class="avatar${p.naBase ? " avatar--base" : ""}">${p.naBase ? "🏠" : escapeHtml(iniciais(motorista))}</span>
+      <span>${escapeHtml(motorista)}${p.naBase ? " · tratativa na base" : ""}</span>
     </div>` : ""}
 
     <div class="pkg__facts">

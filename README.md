@@ -283,10 +283,19 @@ Três decisões que sustentam o resto:
 - `assinatura de encomenda` é a **baixa da entrega** — o único bipe que encerra o pacote
   sozinho e em definitivo. Fecha o despacho aberto e tira o pacote de todas as filas.
 - **Nem todo "motorista" é motorista.** Algumas contas existem para tratativa **dentro da
-  base** — o bipe de saída para entrega sai idêntico ao de um despacho real, mas o pacote
-  não foi para a rua. Sem tratamento, elas abririam dívida, entrariam na fila de cobrança e
-  alguém tentaria mandar WhatsApp para um motorista que não existe. A lista está em
-  `CONTAS_DE_TRATATIVA` (`src/config.js`) — acrescentar um nome ali basta.
+  base**: no JMS o bipe sai idêntico ao de um despacho real, mas o pacote não foi para a
+  rua e quem responde por ele é o **assistente daquela base**.
+  `CONTAS_DE_TRATATIVA` (`src/config.js`) traduz a conta para o assistente:
+
+  | Conta no JMS | Responsável de verdade |
+  |---|---|
+  | `SAMARA KELLIS PEREIRA DOS SANTOS` | **SAMUEL RVD 1** |
+  | `DIONATAN DOS SANTOS` | **MARCOS RVD 2** |
+
+  A tradução acontece na origem, ao montar o despacho, então cartão, cobrança e cadastro já
+  veem a pessoa certa. Esconder a conta não serviria: o cartão passaria a apontar o
+  motorista do despacho *anterior* — a pessoa errada. O nome original fica registrado no
+  detalhe do pacote, para o sistema poder ser conferido contra a planilha.
   Esses pacotes ganham a situação **Em tratativa na base** e a ação **Tratar na base**,
   separada de "Cobrar motorista" e de "Tratar no galpão".
 - `Digitalizador` **≠** `Correio de coleta ou entrega`. O primeiro é quem bipou (conferente

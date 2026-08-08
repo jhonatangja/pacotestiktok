@@ -152,28 +152,34 @@ export const SLA_PADRAO = {
 
 export const PREFIXO_MOTORISTA_PADRAO = "F RVD -";
 
-// Contas de "motorista" usadas para TRATATIVA DENTRO DA BASE — não são pessoas
-// que saem para a rua com o pacote.
+// Contas de "motorista" usadas para TRATATIVA DENTRO DA BASE.
 //
-// Um `bipe de saída para entrega` para uma delas parece, no JMS, idêntico a um
-// despacho de verdade: abriria dívida no nome de alguém, entraria na fila de
-// cobrança e alguém tentaria mandar WhatsApp para um motorista que não existe.
-// O pacote na verdade continua na base, sendo tratado.
+// No JMS o bipe sai idêntico ao de um despacho de verdade, com o nome da conta
+// no lugar de quem realmente responde. Só que o pacote não foi para a rua: ele
+// está na base, e quem responde por ele é o assistente daquela base.
 //
-// Para incluir outra conta, basta acrescentar o nome aqui (sem o prefixo da
-// filial). A comparação ignora acento e maiúscula.
-export const CONTAS_DE_TRATATIVA = [
-  "SAMARA KELLIS PEREIRA DOS SANTOS",
-  "DIONATAN DOS SANTOS",
-];
+// Esconder a conta não resolve — deixaria o cartão apontando o motorista do
+// despacho ANTERIOR, ou seja, cobrando a pessoa errada. O certo é traduzir a
+// conta para o assistente responsável.
+//
+// Para incluir outra conta: `"NOME DA CONTA NO JMS": "ASSISTENTE"` (sem o
+// prefixo da filial). A comparação ignora acento e maiúscula.
+export const CONTAS_DE_TRATATIVA = {
+  "SAMARA KELLIS PEREIRA DOS SANTOS": "SAMUEL RVD 1",
+  "DIONATAN DOS SANTOS":              "MARCOS RVD 2",
+};
 
 const semAcento = (s) =>
   String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toUpperCase();
 
-const CONTAS_NORMALIZADAS = new Set(CONTAS_DE_TRATATIVA.map(semAcento));
+const POR_CONTA = new Map(
+  Object.entries(CONTAS_DE_TRATATIVA).map(([conta, resp]) => [semAcento(conta), resp]));
+
+/** O assistente que responde por essa conta, ou null se for motorista de rua. */
+export const responsavelDaConta = (nome) => POR_CONTA.get(semAcento(nome)) ?? null;
 
 /** O nome é uma conta de tratativa da base, e não um motorista de rua? */
-export const ehContaDeTratativa = (nome) => CONTAS_NORMALIZADAS.has(semAcento(nome));
+export const ehContaDeTratativa = (nome) => responsavelDaConta(nome) != null;
 
 // TikTok Shop é entrega no mesmo dia: todo pacote que ainda está no circuito
 // tem um cliente esperando AGORA. Por isso a cobrança não separa mais "com

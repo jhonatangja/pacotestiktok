@@ -26,7 +26,7 @@ import { pacotesResolvidos } from "../src/ui/resolvidos.js";
 import { noCircuito } from "../src/ui/fechamento.js";
 import { ACAO, definirAutor, novaAtividade, cobradoHoje } from "../src/atividades.js";
 import { FLAG, SITUACAO, SITUACAO_META, FACT, STAGE, SCAN_TYPES, FECHAMENTOS,
-         ehContaDeTratativa } from "../src/config.js";
+         responsavelDaConta } from "../src/config.js";
 import { VERSAO, ARQUIVOS } from "../src/versao.js";
 
 const require = createRequire(import.meta.url);
@@ -320,40 +320,44 @@ const fonteVersao = readFileSync(join(raiz, "src/versao.js"), "utf8");
 check("versão é lida do arquivo sem confundir com comentário",
   fonteVersao.match(/^export const VERSAO\s*=\s*"([^"]+)"/m)?.[1], VERSAO);
 
-// contas de tratativa da base não são motoristas de rua
-check("conta de tratativa é reconhecida", ehContaDeTratativa("SAMARA KELLIS PEREIRA DOS SANTOS"), true);
-check("comparação ignora caixa e acento", ehContaDeTratativa("dionatan dos santos"), true);
-check("motorista de verdade não é confundido", ehContaDeTratativa("DORAILDO ALVES DE OLIVEIRA"), false);
+// contas de tratativa da base respondem pelo assistente, não pelo nome do JMS
+check("conta traduz para o assistente da base",
+  responsavelDaConta("SAMARA KELLIS PEREIRA DOS SANTOS"), "SAMUEL RVD 1");
+check("tradução ignora caixa e acento", responsavelDaConta("dionatan dos santos"), "MARCOS RVD 2");
+check("motorista de rua não é traduzido", responsavelDaConta("DORAILDO ALVES DE OLIVEIRA"), null);
 
-const contaFake = "SAMARA KELLIS PEREIRA DOS SANTOS";
+const contaJms = "SAMARA KELLIS PEREIRA DOS SANTOS";
+const assistente = "SAMUEL RVD 1";
 const alvoBase = "999881572437952";
 const despachoNaBase = {
   id: `${alvoBase}|sintetico|tratativa`, pkgId: alvoBase,
   ts: agora + 1800000, tsISO: new Date(agora + 1800000).toISOString(),
   rawType: "bipe de saída para entrega", fact: FACT.DESPACHO, stage: STAGE.COM_MOTORISTA,
   label: "Saiu para entrega", base: "F RVD - GO",
-  scanner: "F RVD - CONFERENTE", courier: `F RVD - ${contaFake}`,
+  scanner: "F RVD - CONFERENTE", courier: `F RVD - ${contaJms}`,
 };
 const comConta = buildPackages([...limpos, despachoNaBase], { now: agora + 40 * 3600000 });
 const naBase2 = comConta.packages.find((p) => p.pkgId === alvoBase);
+const ultimoDespacho = naBase2.despachos[naBase2.despachos.length - 1];
 
-check("bipe para conta de tratativa não vira posse de motorista",
+check("bipe para conta de tratativa vira ação própria",
   naBase2.situacao, SITUACAO.EM_TRATATIVA_BASE);
-check("conta de tratativa não estoura prazo de motorista",
-  naBase2.despachos[naBase2.despachos.length - 1].estourado, false);
-check("pacote em tratativa não tem motorista atual", naBase2.motoristaAtual, null);
-check("pacote em tratativa registra quem está tratando", naBase2.tratadoNaBasePor, contaFake);
-check("conta de tratativa fica fora dos motoristas do pacote",
-  naBase2.motoristasEnvolvidos.includes(contaFake), false);
-check("conta de tratativa não entra na cobrança",
-  comConta.byDriver.some((m) => m.driver === contaFake), false);
-check("conta de tratativa não vira troca de motorista",
-  naBase2.flags.includes(FLAG.TROCA_DE_MOTORISTA), false);
-check("conta de tratativa some do cadastro de motoristas",
-  listarMotoristas(comConta.packages, comConta.byDriver, {}).some((m) => m.driver === contaFake), false);
-// e a ação é uma coluna própria do painel, separada de galpão e de motorista
-check("tratativa na base tem ação própria",
+check("tratativa na base tem ação separada",
   SITUACAO_META[SITUACAO.EM_TRATATIVA_BASE].acao, "Tratar na base");
+check("o responsável é o assistente, não a conta", naBase2.motoristaAtual, assistente);
+check("o nome do JMS não aparece como motorista",
+  naBase2.motoristasEnvolvidos.includes(contaJms), false);
+check("a conta original fica registrada para auditoria", ultimoDespacho.contaNoJms, contaJms);
+check("o pacote é marcado como na base", naBase2.naBase, true);
+// a responsabilidade é do assistente: ele responde igual a qualquer motorista
+check("o assistente entra na cobrança",
+  comConta.byDriver.some((m) => m.driver === assistente), true);
+check("a conta do JMS não entra na cobrança",
+  comConta.byDriver.some((m) => m.driver === contaJms), false);
+check("o assistente entra no cadastro de responsáveis",
+  listarMotoristas(comConta.packages, comConta.byDriver, {}).some((m) => m.driver === assistente), true);
+check("a conta do JMS some do cadastro",
+  listarMotoristas(comConta.packages, comConta.byDriver, {}).some((m) => m.driver === contaJms), false);
 
 // cobrança: todo pacote no circuito é cliente esperando, e o prazo exigido
 // muda sozinho no corte das 14h

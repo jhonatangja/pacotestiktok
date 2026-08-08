@@ -7,7 +7,6 @@
 // tela. Persistido como contato no repositório (local ou nuvem).
 // ---------------------------------------------------------------------------
 
-import { ehContaDeTratativa } from "../config.js";
 import { escapeHtml, iniciais, tomVars } from "./format.js";
 import { telefoneValido, formatarTelefone } from "../contatos.js";
 import { listaVazia } from "./cards.js";
@@ -27,14 +26,10 @@ export function listarMotoristas(packages, byDriver, contatos) {
   };
 
   for (const p of packages) {
-    // `motoristasEnvolvidos` já exclui as contas de tratativa da base: elas não
-    // são pessoas, não têm WhatsApp e não podem virar linha do cadastro.
     for (const nome of p.motoristasEnvolvidos) slot(nome).historico++;
   }
   for (const m of byDriver) slot(m.driver).abertos = m.totalAbertos;
-  for (const nome of Object.keys(contatos)) {
-    if (!ehContaDeTratativa(nome)) slot(nome).cadastrado = true;
-  }
+  for (const nome of Object.keys(contatos)) slot(nome).cadastrado = true;
 
   return [...mapa.values()]
     .map((m) => ({ ...m, telefone: contatos[m.driver]?.telefone ?? "" }))

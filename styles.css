@@ -529,6 +529,10 @@ p { margin: 0; }
 .dispatch__when { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .dispatch__out { margin-top: 5px; font-size: 13px; color: var(--ink-2); }
 .dispatch__out b { color: var(--tone); font-weight: 650; }
+/* O nome que o JMS gravou fica registrado: sem isso, conferir o sistema contra
+   a planilha viraria um quebra-cabeça — os dois mostrariam nomes diferentes. */
+.dispatch__conta { margin-top: 5px; font-size: 12px; color: var(--ink-3); }
+.dispatch__conta b { color: var(--ink-2); font-weight: 600; }
 
 /* ------------------------------------------------------------ timeline */
 .timeline { position: relative; padding-left: 22px; }
