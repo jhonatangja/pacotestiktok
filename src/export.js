@@ -30,50 +30,82 @@ const csvCell = (v) => {
   return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
+// As mesmas colunas para CSV e Excel — uma fonte só, para as duas saídas nunca
+// divergirem entre si.
+const COLUNAS_RELATORIO = [
+  "Pedido", "Base responsável", "Situação", "Ação necessária", "Motorista atual", "Horas com motorista",
+  "Despachos", "Rebipes sem tratativa", "Entrou no circuito", "Horas para resolver",
+  "Horas na base", "Horas até expedir da base",
+  "Horas sem movimento", "Dias desde a coleta", "Cidade", "Destinatário", "Endereço", "Valor",
+  "Tratativa", "Responsável", "Prazo", "Último registro", "Alertas",
+];
+
+function linhaRelatorio(p, tratativas, enrichment) {
+  const t = tratativas[p.pkgId];
+  const e = enrichment[p.pkgId] ?? {};
+  const rebipes = p.despachos.filter((d) => d.anomalia).length;
+  const ultimaNota = t?.notas?.length ? t.notas[t.notas.length - 1].texto : "";
+
+  return [
+    p.pkgId,
+    p.baseResponsavel ?? "",
+    SITUACAO_META[p.situacao]?.label ?? p.situacao,
+    SITUACAO_META[p.situacao]?.acao ?? "",
+    p.motoristaAtual ?? "",
+    p.horasComMotorista ?? "",
+    p.totalDespachos,
+    rebipes,
+    p.recebidoNaBaseEm ? new Date(p.recebidoNaBaseEm).toLocaleString("pt-BR") : "",
+    p.horasParaResolver ?? "",
+    p.horasNaBase ?? "",
+    p.horasAteExpedir ?? "",
+    p.horasSemMovimento,
+    p.diasDesdeColeta ?? "",
+    p.destCity ?? "",
+    e.destinatario ?? "",
+    [e.endereco, e.bairro].filter(Boolean).join(", "),
+    e.valor ?? "",
+    t ? situacaoTratativa(t).label : "",
+    t?.responsavel ?? "",
+    t?.prazo ?? "",
+    ultimaNota,
+    p.flags.map((f) => FLAG_META[f]?.label ?? f).join(" | "),
+  ];
+}
+
 /** CSV com ponto e vírgula e BOM — abre direto no Excel em português. */
 export function relatorioCsv(packages, tratativas = {}, enrichment = {}) {
-  const colunas = [
-    "Pedido", "Base responsável", "Situação", "Ação necessária", "Motorista atual", "Horas com motorista",
-    "Despachos", "Rebipes sem tratativa", "Entrou no circuito", "Horas para resolver",
-    "Horas na base", "Horas até expedir da base",
-    "Horas sem movimento", "Dias desde a coleta", "Cidade", "Destinatário", "Endereço", "Valor",
-    "Tratativa", "Responsável", "Prazo", "Último registro", "Alertas",
-  ];
+  const linhas = packages.map((p) =>
+    linhaRelatorio(p, tratativas, enrichment).map(csvCell).join(";"));
+  return "﻿" + [COLUNAS_RELATORIO.join(";"), ...linhas].join("\r\n");
+}
 
-  const linhas = packages.map((p) => {
-    const t = tratativas[p.pkgId];
-    const e = enrichment[p.pkgId] ?? {};
-    const rebipes = p.despachos.filter((d) => d.anomalia).length;
-    const ultimaNota = t?.notas?.length ? t.notas[t.notas.length - 1].texto : "";
+/**
+ * Um .xlsx de verdade — não CSV reaproveitado. Duas abas, porque trabalhar a
+ * tratativa é diferente de conferir o que já foi resolvido: **Pendências**
+ * separa o que ainda precisa de decisão do histórico que só ocupa espaço.
+ *
+ * Filtro nativo e largura de coluna já vêm prontos — sem isso a primeira coisa
+ * que quem recebe o arquivo faz é selecionar tudo e mandar "Dados > Filtro".
+ *
+ * Depende do SheetJS global (`XLSX`, carregado por `<script>` em index.html) —
+ * mesmo padrão que `ingest.js` já usa para ler planilha.
+ */
+export function relatorioXlsx(packages, tratativas = {}, enrichment = {}) {
+  const aba = (lista) => {
+    const linhas = lista.map((p) => linhaRelatorio(p, tratativas, enrichment));
+    const ws = XLSX.utils.aoa_to_sheet([COLUNAS_RELATORIO, ...linhas]);
+    ws["!cols"] = COLUNAS_RELATORIO.map((c) => ({ wch: Math.max(10, Math.min(32, c.length + 4)) }));
+    ws["!autofilter"] = { ref: XLSX.utils.encode_range(
+      { s: { r: 0, c: 0 }, e: { r: linhas.length, c: COLUNAS_RELATORIO.length - 1 } }) };
+    return ws;
+  };
 
-    return [
-      p.pkgId,
-      p.baseResponsavel ?? "",
-      SITUACAO_META[p.situacao]?.label ?? p.situacao,
-      SITUACAO_META[p.situacao]?.acao ?? "",
-      p.motoristaAtual ?? "",
-      p.horasComMotorista ?? "",
-      p.totalDespachos,
-      rebipes,
-      p.recebidoNaBaseEm ? new Date(p.recebidoNaBaseEm).toLocaleString("pt-BR") : "",
-      p.horasParaResolver ?? "",
-      p.horasNaBase ?? "",
-      p.horasAteExpedir ?? "",
-      p.horasSemMovimento,
-      p.diasDesdeColeta ?? "",
-      p.destCity ?? "",
-      e.destinatario ?? "",
-      [e.endereco, e.bairro].filter(Boolean).join(", "),
-      e.valor ?? "",
-      t ? situacaoTratativa(t).label : "",
-      t?.responsavel ?? "",
-      t?.prazo ?? "",
-      ultimaNota,
-      p.flags.map((f) => FLAG_META[f]?.label ?? f).join(" | "),
-    ].map(csvCell).join(";");
-  });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, aba(packages.filter((p) => !p.resolvido)), "Pendências");
+  XLSX.utils.book_append_sheet(wb, aba(packages.filter((p) => p.resolvido)), "Resolvidos");
 
-  return "﻿" + [colunas.join(";"), ...linhas].join("\r\n");
+  return XLSX.write(wb, { bookType: "xlsx", type: "array" });
 }
 
 export function baixar(nome, conteudo, tipo = "text/csv;charset=utf-8") {

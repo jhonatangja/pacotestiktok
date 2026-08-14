@@ -15,7 +15,7 @@ import {
   EMBARCADOR, EMBARCADOR_META,
 } from "../config.js";
 import { escapeHtml, TOM, tomVars, duracao } from "./format.js";
-import { cardPacote, cardAguardando, listaVazia } from "./cards.js";
+import { linhaPacote, cardAguardando, listaVazia } from "./cards.js";
 
 // Situações que exigem alguém fazer alguma coisa hoje.
 // Só o que já saiu do controle da base fica de fora (trânsito nacional).
@@ -267,6 +267,6 @@ function secao({ titulo, dica, tom, pacotes, extra = "" }) {
         ${extra ? `<span class="group__extra">${escapeHtml(extra)}</span>` : ""}
         <span class="group__hint">${escapeHtml(dica)}</span>
       </div>
-      <div class="cards">${pacotes.map(cardPacote).join("")}</div>
+      <div class="pkg-list">${pacotes.map((p) => linhaPacote(p)).join("")}</div>
     </section>`;
 }

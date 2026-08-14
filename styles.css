@@ -963,3 +963,61 @@ p { margin: 0; }
   background: var(--atrasado-bg); color: var(--atrasado);
 }
 .tab.is-active .tab__count { background: rgba(255,255,255,.22); color: #fff; }
+
+/* ------------------------------------------------------------- pkgrow */
+/* A lista compacta: mesma informação essencial do .pkg, numa linha. Usada nas
+   telas com muitos pacotes de uma vez (Painel de Ação, TikTok Shop, Todos os
+   pacotes), onde 250px+ de cartão por item vira rolagem sem fim. */
+.pkg-list { display: flex; flex-direction: column; gap: 7px; }
+
+.pkgrow {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.1fr) minmax(180px, 1.6fr) auto;
+  align-items: center; gap: 4px 16px;
+  width: 100%; text-align: left; cursor: pointer;
+  font: inherit; color: inherit;
+  padding: 10px 14px; border-radius: var(--radius-sm);
+  background: var(--surface); border: 1px solid var(--line);
+  border-left: 3px solid var(--tone, var(--transito));
+  box-shadow: var(--shadow);
+  transition: transform .15s var(--ease), box-shadow .15s var(--ease), border-color .15s var(--ease);
+}
+.pkgrow:hover { transform: translateY(-1px); box-shadow: var(--shadow-lift); }
+.pkgrow--ticket { box-shadow: var(--shadow), 0 0 0 1px var(--atrasado-line); }
+
+.pkgrow__id { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.pkgrow__code {
+  font-weight: 650; font-size: 13.5px; font-variant-numeric: tabular-nums;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pkgrow__dest {
+  font-size: 12px; color: var(--ink-3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.pkgrow__acao { min-width: 0; display: flex; align-items: baseline; gap: 7px; }
+.pkgrow__acao b {
+  font-size: 12.5px; font-weight: 650;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pkgrow__dono {
+  flex: none; font-size: 11px; font-weight: 600; color: var(--ink-2);
+  background: var(--surface-2); border: 1px solid var(--line);
+  padding: 1px 8px; border-radius: 99px;
+}
+.pkgrow__flags { flex: none; font-size: 11px; color: var(--ink-3); }
+
+.pkgrow__prazo { justify-self: end; white-space: nowrap; }
+
+@media (max-width: 720px) {
+  .pkgrow {
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "id prazo" "acao acao";
+    row-gap: 5px;
+  }
+  .pkgrow__id { grid-area: id; }
+  .pkgrow__prazo { grid-area: prazo; }
+  .pkgrow__acao { grid-area: acao; }
+}
+
+@media (pointer: coarse) { .pkgrow { min-height: 52px; } }

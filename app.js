@@ -23,8 +23,8 @@ import { ACAO, definirAutor, novaAtividade, cobradoHoje, contatadoHoje } from ".
 import { mensagemCobranca, mensagemFechamentoMotorista } from "./src/charge.js";
 import { novaTratativa, adicionarNota, alternarTicket, separarCodigos, STATUS, DESFECHO_META } from "./src/tratativa.js";
 import { buildEnrichment } from "./src/enrich.js";
-import { codigosParaReconsultar, relatorioCsv, baixar, nomeDoArquivo } from "./src/export.js";
-import { cardPacote, listaVazia } from "./src/ui/cards.js";
+import { codigosParaReconsultar, relatorioCsv, relatorioXlsx, baixar, nomeDoArquivo } from "./src/export.js";
+import { linhaPacote, listaVazia } from "./src/ui/cards.js";
 import { escapeHtml, dataHoraLonga } from "./src/ui/format.js";
 import { normalizarTelefone, telefoneValido, linkWhatsApp } from "./src/contatos.js";
 import { usarSupabase, usuarioParaEmail, emailParaUsuario } from "./src/supabase-config.js";
@@ -261,7 +261,7 @@ function renderListaPacotes() {
   });
 
   el.listaPacotes.innerHTML = lista.length
-    ? lista.map(cardPacote).join("")
+    ? lista.map((p) => linhaPacote(p)).join("")
     : listaVazia("Nenhum pacote corresponde ao filtro.", "🔍");
 }
 
@@ -631,6 +631,17 @@ $("btnBaixarRelatorio").addEventListener("click", () => {
   baixar(nomeDoArquivo("pacotes-tiktok", "csv"),
          relatorioCsv(state.packages, state.tratativas, state.enrichment));
   toast("Relatório gerado.", "good");
+});
+
+$("btnBaixarExcel").addEventListener("click", () => {
+  try {
+    const arr = relatorioXlsx(state.packages, state.tratativas, state.enrichment);
+    baixar(nomeDoArquivo("pacotes-tiktok", "xlsx"), arr, "application/octet-stream");
+    toast("Planilha Excel gerada — abas Pendências e Resolvidos.", "good");
+  } catch (err) {
+    console.error(err);
+    toast("Não foi possível gerar o Excel. Use o CSV.", "bad");
+  }
 });
 
 $("btnLimparBase").addEventListener("click", async () => {

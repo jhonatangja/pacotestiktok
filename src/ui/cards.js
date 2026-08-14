@@ -79,18 +79,27 @@ function flagsDoCartao(p) {
     </div>`;
 }
 
-export function cardPacote(p, { comAcao = true } = {}) {
+/**
+ * Ação, prazo e a cor que resulta dos dois — compartilhado entre o cartão e a
+ * linha compacta, para as duas formas nunca contarem histórias diferentes do
+ * mesmo pacote.
+ */
+function acaoPrazoETom(p, comAcao) {
   // A ação é a razão do cartão existir: sem ela o operador lê um estado e
   // precisa reconstruir de cabeça o que fazer com ele.
   const acao = comAcao && !p.resolvido ? proximaAcao(p) : null;
   // O prazo com o cliente vale para todo embarcador e é o único número que diz
   // "ainda dá" ou "já falhou" — por isso é o único chip do cartão.
   const pz = p.resolvido ? null : prazo(p);
-
-  // A borda do cartão é a URGÊNCIA, não só a situação. Sem isso um pacote com
-  // prazo vencido e motorista "no prazo" ganhava borda verde e chip vermelho ao
-  // mesmo tempo — dois sinais opostos sobre o mesmo pacote.
+  // A cor é a URGÊNCIA, não só a situação. Sem isso um pacote com prazo vencido
+  // e motorista "no prazo" ganhava borda verde e chip vermelho ao mesmo tempo —
+  // dois sinais opostos sobre o mesmo pacote.
   const tom = p.ticketAberto || pz?.estourado ? "atrasado" : (TOM[p.situacao] ?? "transito");
+  return { acao, pz, tom };
+}
+
+export function cardPacote(p, { comAcao = true } = {}) {
+  const { acao, pz, tom } = acaoPrazoETom(p, comAcao);
 
   // o número que mais importa muda conforme a situação
   const destaque =
@@ -151,6 +160,46 @@ export function cardPacote(p, { comAcao = true } = {}) {
     </div>` : ""}
 
     ${flagsDoCartao(p)}
+  </button>`;
+}
+
+/**
+ * A mesma informação do cartão, numa linha — para telas com muitos pacotes de
+ * uma vez (Painel de Ação, TikTok Shop, Todos os pacotes), onde o cartão
+ * inteiro por item faz a lista virar uma rolagem sem fim.
+ *
+ * O que sobrevive à compressão: código, destino, prazo e a ação — o resto
+ * (motorista quando não é o dono da ação, contagem de despachos, flags por
+ * extenso) fica só no drawer. Clicar na linha abre exatamente o mesmo drawer
+ * do cartão — é o `data-pkg` que faz isso, não JS novo.
+ */
+export function linhaPacote(p, { comAcao = true } = {}) {
+  const { acao, pz, tom } = acaoPrazoETom(p, comAcao);
+
+  const motorista = p.motoristaAtual ?? p.motoristasEnvolvidos[p.motoristasEnvolvidos.length - 1];
+  const donoEhOMotorista = !!acao?.dono && acao.dono === motorista;
+  // Sem ação (resolvido, ou em trânsito) a linha ainda precisa dizer alguma
+  // coisa no lugar dela — cai para a situação, que é o que resta a informar.
+  const donoParaMostrar = acao?.dono ?? (!donoEhOMotorista ? motorista : null);
+
+  const flags = p.flags.filter((f) => f !== FLAG.PRAZO_ESTOURADO);
+
+  return `
+  <button class="pkgrow ${p.ticketAberto ? "pkgrow--ticket" : ""}" style="${tomVars(tom)}" data-pkg="${escapeHtml(p.pkgId)}">
+    <div class="pkgrow__id">
+      <span class="pkgrow__code">${p.ticketAberto ? "🔴 " : ""}${escapeHtml(p.pkgId)}${embarcadorTag(p)}</span>
+      <span class="pkgrow__dest">${escapeHtml(p.destCity ?? "—")}${p.destState ? "/" + escapeHtml(p.destState) : ""}${baseTag(p)}</span>
+    </div>
+
+    <div class="pkgrow__acao">
+      <b style="${acao ? `color:var(--${acao.tom})` : ""}">${escapeHtml(acao?.titulo ?? p.situacaoLabel)}</b>
+      ${donoParaMostrar ? `<span class="pkgrow__dono">${escapeHtml(donoParaMostrar)}</span>` : ""}
+      ${flags.length ? `<span class="pkgrow__flags" title="${escapeHtml(flags.map(flagLabel).join(" · "))}">🚩${flags.length}</span>` : ""}
+    </div>
+
+    ${pz
+      ? `<span class="pill pill--prazo pkgrow__prazo" style="${tomVars(pz.tom)}">${escapeHtml(pz.texto)}</span>`
+      : `<span class="pill pkgrow__prazo">${escapeHtml(p.situacaoLabel)}</span>`}
   </button>`;
 }
 
