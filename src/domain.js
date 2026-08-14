@@ -88,10 +88,32 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
   const baseResponsavel = ultimoRecebimentoNosso?.base ?? null;
   const transferidoEntreBases = new Set(nossos.map((e) => e.base)).size > 1;
 
-  // Só um recebimento em base de FORA encerra o caso aqui.
-  const emOutraBase = recebimentos.find(
+  // O pacote SAIU da nossa base: `bipe de expedição` numa base nossa devolve o
+  // pacote para a malha. É a evidência formal de que ele deixou o circuito daqui.
+  const expedidoDaNossaBase = recebidoNaBaseEm == null ? null
+    : timeline.find((e) => e.fact === FACT.SAIDA_HUB
+        && ehBasePropria(e.base) && e.ts >= recebidoNaBaseEm) ?? null;
+
+  // E chegou noutra base. Duas evidências servem:
+  //  · `bipe de recebimento` — outra unidade de última milha assumiu;
+  //  · `Chegadas ao centro` — o pacote foi fisicamente descarregado lá.
+  //
+  // A segunda só vale DEPOIS do nosso recebimento: antes disso, chegada em
+  // centro de outra praça é só o trânsito nacional trazendo o pacote para cá, e
+  // encerrar ali fecharia todo pacote a caminho.
+  const chegouForaDepois = recebidoNaBaseEm == null ? null
+    : timeline.find((e) => (e.fact === FACT.CHEGADA_HUB || e.fact === FACT.RECEBIDO_BASE)
+        && !ehBasePropria(e.base) && e.ts >= recebidoNaBaseEm) ?? null;
+
+  const recebidoPorOutraUnidade = recebimentos.find(
     (e) => !ehBasePropria(e.base) && (recebidoNaBaseEm == null || e.ts >= recebidoNaBaseEm)
   ) ?? null;
+
+  const emOutraBase = recebidoPorOutraUnidade ?? chegouForaDepois;
+  // Quando saiu daqui por expedição, o desfecho não é "outra base assumiu" — é
+  // devolução para a malha, que é como a operação chama e cobra.
+  const devolvidoAMalha = !!(emOutraBase && expedidoDaNossaBase
+    && expedidoDaNossaBase.ts <= emOutraBase.ts);
 
   // `assinatura de encomenda`: o cliente assinou. É a evidência mais forte que
   // existe no JMS e encerra o pacote sem depender de decisão de ninguém aqui.
@@ -201,6 +223,7 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
   // é o fato mais forte que o sistema conhece.
   const resolvido = !!entrega || finalizadoPeloOperador || !!emOutraBase;
   const desfecho = entrega ? DESFECHO.ENTREGUE
+    : devolvidoAMalha ? "devolvido_malha"
     : emOutraBase ? "outra_base"
     : (finalizadoPeloOperador ? (tratativa?.desfecho ?? null) : null);
 
@@ -306,7 +329,11 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
   return {
     pkgId,
     situacao,
-    situacaoLabel: SITUACAO_META[situacao]?.label ?? situacao,
+    // "Devolvido à malha" é como a operação chama, e diz mais que "recebido em
+    // outra base": o pacote não foi assumido por alguém, ele voltou.
+    situacaoLabel: devolvidoAMalha
+      ? "Devolvido à malha"
+      : (SITUACAO_META[situacao]?.label ?? situacao),
     acao: SITUACAO_META[situacao]?.acao ?? "Verificar",
     flags,
     prioridade,
@@ -321,6 +348,8 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
       : (resolvido ? resolvidaEm : null),
     responsavelResolucao: finalizadoPeloOperador ? (tratativa?.responsavel || null) : null,
     outraBase: emOutraBase ? emOutraBase.base : null,
+    devolvidoAMalha,
+    expedidoDaBaseEm: expedidoDaNossaBase?.ts ?? null,
     entregueEm: entrega?.ts ?? null,
     entreguePor: entrega ? stripDriverPrefix(entrega.courier ?? entrega.scanner ?? "", prefixo) || null : null,
 

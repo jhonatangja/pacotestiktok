@@ -498,6 +498,54 @@ check("sem ocorrência não há causa", semCausa.packages[0].causa, null);
 check("sem ocorrência a ordem continua sendo entregar",
   mensagemCobranca(semCausa.byDriver[0], {}, new Date(2026, 7, 8, 9, 0)).includes("entregue HOJE"), true);
 
+// expedido da nossa base e chegado noutra = devolvido à malha, caso encerrado
+const evMalha = (h, fact, rawType, label, base, prox) => ({
+  id: `MALHA|${h}|${fact}|${base}`, pkgId: "444444444444444", ts: agora - h * 3600000,
+  tsISO: new Date(agora - h * 3600000).toISOString(), rawType, fact, stage: STAGE.OUTRO,
+  label, base, prevNext: prox ?? null, destCity: "Rio Verde",
+});
+const foiParaMalha = buildPackages([
+  evMalha(300, FACT.RECEBIDO_BASE, "bipe de recebimento", "Recebido", "F RVD - GO"),
+  evMalha(200, FACT.SAIDA_HUB, "bipe de expedição", "Expedido", "F RVD - GO", "GO GYN"),
+  evMalha(150, FACT.CHEGADA_HUB, "Chegadas ao centro", "Chegada no centro", "GO GYN"),
+  evMalha(100, FACT.SAIDA_HUB, "bipe de expedição", "Expedido", "GO GYN", "SN RAO"),
+], { now: agora }).packages[0];
+
+check("expedido daqui e chegado fora encerra o caso", foiParaMalha.resolvido, true);
+check("o desfecho é devolução à malha", foiParaMalha.desfecho, "devolvido_malha");
+check("a base que recebeu é identificada", foiParaMalha.outraBase, "GO GYN");
+check("deixa de aparecer como parado na base",
+  foiParaMalha.situacao === SITUACAO.NA_BASE_NAO_EXPEDIDO, false);
+check("o rótulo fala a língua da operação", foiParaMalha.situacaoLabel, "Devolvido à malha");
+check("sai do circuito", noCircuito([foiParaMalha]).length, 0);
+
+// A PROTEÇÃO que sustenta a regra: pacote ainda a caminho da nossa base passa
+// por centros de outras praças, e isso NÃO pode encerrar nada.
+const aCaminho = buildPackages([
+  evMalha(300, FACT.COLETA, "coleta de encomenda", "Coleta", "LMR-SP"),
+  evMalha(200, FACT.CHEGADA_HUB, "Chegadas ao centro", "Chegada no centro", "SP BRE"),
+  evMalha(150, FACT.CHEGADA_HUB, "Chegadas ao centro", "Chegada no centro", "GO GYN"),
+  evMalha(100, FACT.SAIDA_HUB, "bipe de expedição", "Expedido", "GO GYN", "F RVD - GO"),
+], { now: agora }).packages[0];
+check("pacote a caminho da base não é encerrado por trânsito", aCaminho.resolvido, false);
+check("pacote a caminho continua em trânsito", aCaminho.situacao, SITUACAO.EM_TRANSITO);
+
+// Trocar entre as NOSSAS bases continua sem encerrar nada.
+const entreNossas = buildPackages([
+  evMalha(300, FACT.RECEBIDO_BASE, "bipe de recebimento", "Recebido", "F RVD - GO"),
+  evMalha(200, FACT.SAIDA_HUB, "bipe de expedição", "Expedido", "F RVD - GO", "F RVD 02-GO"),
+  evMalha(150, FACT.CHEGADA_HUB, "Chegadas ao centro", "Chegada no centro", "F RVD 02-GO"),
+], { now: agora }).packages[0];
+check("expedir para a nossa outra base não encerra", entreNossas.resolvido, false);
+
+// Recebimento formal por outra unidade continua sendo "outra base assumiu",
+// não devolução — a diferença importa para quem lê o histórico.
+const outraAssumiu = buildPackages([
+  evMalha(300, FACT.RECEBIDO_BASE, "bipe de recebimento", "Recebido", "F RVD - GO"),
+  evMalha(150, FACT.RECEBIDO_BASE, "bipe de recebimento", "Recebido", "F APG - GO"),
+], { now: agora }).packages[0];
+check("sem expedição daqui, o desfecho é outra base", outraAssumiu.desfecho, "outra_base");
+
 // o prazo com o cliente: 1 dia do bipe de recebimento, para TODO embarcador
 check("o prazo padrão é de 24h", SLA_PADRAO.entregaHoras, 24);
 const comPrazo = packages.filter((p) => p.recebidoNaBaseEm != null);

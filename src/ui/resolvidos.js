@@ -31,6 +31,10 @@ function desfechoDe(p) {
   if (p.entregueEm) {
     return { label: "Entregue ao cliente", icone: "✅", tom: "ok" };
   }
+  // Saiu da nossa base por expedição: foi devolvido, não assumido por outro.
+  if (p.desfecho === "devolvido_malha") {
+    return { label: `Devolvido à malha · ${p.outraBase ?? "malha"}`, icone: "↩️", tom: "nabase" };
+  }
   if (p.desfecho === "outra_base") {
     return { label: `Recebido em ${p.outraBase ?? "outra base"}`, icone: "🏢", tom: "nabase" };
   }
