@@ -48,34 +48,52 @@ export function createSupabaseRepo(client) {
   // extrai o objeto guardado, seja qual for a tabela
   const payloads = (rows) => (rows ?? []).map((r) => r.payload ?? r.value);
 
-  async function selectAll(tabela) {
-    const { data, error } = await sb.from(tabela).select("*");
-    if (error) throw new Error(`Falha ao ler ${tabela}: ${error.message}`);
-    return payloads(data);
+  // O PostgREST devolve no MÁXIMO 1000 linhas por requisição, silenciosamente:
+  // não dá erro, não avisa, só corta. Sem paginar, uma base de 4 mil eventos
+  // vira uma base de mil — e o sistema passa a decidir com 25% dos dados, o que
+  // é pior do que não ter dado nenhum, porque parece que está funcionando.
+  const PAGINA = 1000;
+
+  async function selectAll(tabela, { ordem = null } = {}) {
+    const tudo = [];
+    for (let inicio = 0; ; inicio += PAGINA) {
+      let q = sb.from(tabela).select("*").range(inicio, inicio + PAGINA - 1);
+      // A ordem precisa ser estável entre as páginas, senão a mesma linha pode
+      // aparecer duas vezes e outra nunca aparecer.
+      if (ordem) q = q.order(ordem, { ascending: true });
+      const { data, error } = await q;
+      if (error) throw new Error(`Falha ao ler ${tabela}: ${error.message}`);
+      tudo.push(...payloads(data));
+      if (!data || data.length < PAGINA) return tudo;
+    }
   }
 
   async function upsert(tabela, linhas) {
-    if (!linhas.length) return;
-    const { error } = await sb.from(tabela).upsert(linhas, { onConflict: PK[tabela] });
-    if (error) throw new Error(`Falha ao gravar ${tabela}: ${error.message}`);
+    for (let i = 0; i < linhas.length; i += PAGINA) {
+      const { error } = await sb.from(tabela)
+        .upsert(linhas.slice(i, i + PAGINA), { onConflict: PK[tabela] });
+      if (error) throw new Error(`Falha ao gravar ${tabela}: ${error.message}`);
+    }
   }
 
   return {
     // -- eventos (append-only, id = conteúdo → idempotente) ------------------
-    getEvents: () => selectAll("events"),
+    getEvents: () => selectAll("events", { ordem: "id" }),
 
     async getEventsByPkg(pkgId) {
-      const { data, error } = await sb.from("events").select("*").eq("pkg_id", pkgId);
+      const { data, error } = await sb.from("events").select("*")
+        .eq("pkg_id", pkgId).order("ts", { ascending: true }).limit(PAGINA);
       if (error) throw new Error(`Falha ao ler eventos: ${error.message}`);
       return payloads(data);
     },
 
     async putEvents(events) {
-      // ignoreDuplicates: reimportar não sobrescreve nem duplica (id é a chave)
+      // ignoreDuplicates: reimportar não sobrescreve nem duplica (id é a chave).
+      // Em lotes, porque uma planilha grande vira uma requisição grande demais.
       const linhas = events.map((e) => ({ id: e.id, pkg_id: e.pkgId, ts: e.ts, payload: e }));
-      if (linhas.length) {
+      for (let i = 0; i < linhas.length; i += PAGINA) {
         const { error } = await sb.from("events")
-          .upsert(linhas, { onConflict: "id", ignoreDuplicates: true });
+          .upsert(linhas.slice(i, i + PAGINA), { onConflict: "id", ignoreDuplicates: true });
         if (error) throw new Error(`Falha ao gravar eventos: ${error.message}`);
       }
       return events.length;
@@ -87,7 +105,7 @@ export function createSupabaseRepo(client) {
     },
 
     // -- tratativas ---------------------------------------------------------
-    getTreatments: () => selectAll("treatments"),
+    getTreatments: () => selectAll("treatments", { ordem: "pkg_id" }),
 
     async getTreatment(pkgId) {
       const { data, error } = await sb.from("treatments").select("*").eq("pkg_id", pkgId).maybeSingle();
@@ -107,12 +125,12 @@ export function createSupabaseRepo(client) {
     },
 
     // -- enriquecimento -----------------------------------------------------
-    getEnrichment: () => selectAll("enrichment"),
+    getEnrichment: () => selectAll("enrichment", { ordem: "pkg_id" }),
     putEnrichment: (itens) =>
       upsert("enrichment", itens.map((e) => ({ pkg_id: e.pkgId, payload: e }))),
 
     // -- contatos -----------------------------------------------------------
-    getContacts: () => selectAll("contacts"),
+    getContacts: () => selectAll("contacts", { ordem: "driver" }),
 
     async putContact(c) {
       const payload = { ...c, atualizadaEm: new Date().toISOString() };
@@ -126,7 +144,7 @@ export function createSupabaseRepo(client) {
     },
 
     // -- atividades ---------------------------------------------------------
-    getActivities: () => selectAll("activities"),
+    getActivities: () => selectAll("activities", { ordem: "id" }),
 
     /**
      * Insert puro, não upsert: o log é append-only e cada operador escreve a
