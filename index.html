@@ -13,6 +13,7 @@
 </head>
 <body>
 
+<div class="appbar">
 <header class="topbar">
   <div class="topbar__brand">
     <span class="mark">📦</span>
@@ -39,25 +40,25 @@
 </header>
 
 <nav class="tabs" id="tabs" hidden>
-  <button class="tab is-active" data-screen="painel">
+  <button class="tab is-active" data-tipo="tarefa" data-screen="painel">
     Painel de Ação <span class="tab__count" id="countPainel">0</span>
   </button>
-  <button class="tab" data-screen="tiktok">
+  <button class="tab" data-tipo="tarefa" data-screen="tiktok">
     🛍️ TikTok Shop <span class="tab__count" id="countTiktok">0</span>
   </button>
   <button class="tab" data-screen="cobranca">
     Cobrança <span class="tab__count" id="countCobranca">0</span>
   </button>
-  <button class="tab" data-screen="cliente">
+  <button class="tab" data-tipo="tarefa" data-screen="cliente">
     Falar com o cliente <span class="tab__count" id="countCliente">0</span>
   </button>
-  <button class="tab" data-screen="galpao">
+  <button class="tab" data-tipo="tarefa" data-screen="galpao">
     Galpão <span class="tab__count" id="countGalpao">0</span>
   </button>
   <button class="tab" data-screen="motoristas">
     Motoristas <span class="tab__count" id="countMotoristas">0</span>
   </button>
-  <button class="tab" data-screen="fechamento">
+  <button class="tab" data-tipo="tarefa" data-screen="fechamento">
     Fechamento <span class="tab__count" id="countFechamento">0</span>
   </button>
   <button class="tab" data-screen="resolvidos">
@@ -67,6 +68,7 @@
     Todos os pacotes <span class="tab__count" id="countPacotes">0</span>
   </button>
 </nav>
+</div>
 
 <main class="content">
 
@@ -120,8 +122,8 @@
   <!-- ============================= PAINEL ============================= -->
   <section class="screen" id="screenPainel" hidden>
     <div class="wrap">
-      <div class="quickbar">
-        <span class="quickbar__label">🔴 Adicionar pacotes ao circuito</span>
+      <details class="quickbar">
+        <summary class="quickbar__label">🔴 Adicionar pacotes ao circuito</summary>
         <div class="quickbar__row">
           <textarea id="ticketBulk" class="input quickbar__input" rows="1"
                     placeholder="Cole os códigos com reclamação aberta — um por linha, ou separados por vírgula/espaço"></textarea>
@@ -131,7 +133,7 @@
         <p class="quickbar__sub">Todos entram como <b>ticket do cliente</b>. Os que ainda não foram
            bipados ficam guardados aqui e viram pacote sozinhos na próxima importação.</p>
         <div class="quickbar__out" id="ticketBulkResult" hidden></div>
-      </div>
+      </details>
 
       <div class="basebar" id="filtroBases"></div>
       <div class="stats" id="stats"></div>

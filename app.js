@@ -187,6 +187,18 @@ function mostrarResultado(tipo, html) {
 // ---------------------------------------------------------------------------
 // RENDER
 // ---------------------------------------------------------------------------
+/**
+ * Escreve o contador da aba e marca se há trabalho. A cor do contador só faz
+ * sentido quando o número é maior que zero — "0" colorido de vermelho seria
+ * alarme sobre nada.
+ */
+function contador(id, n) {
+  const e = $(id);
+  if (!e) return;
+  e.textContent = n;
+  e.classList.toggle("tem-trabalho", Number(n) > 0);
+}
+
 function renderTudo() {
   // um código lançado à mão já é motivo para abrir as abas: ele é a única
   // pendência que existe antes de qualquer planilha ser importada
@@ -201,21 +213,20 @@ function renderTudo() {
       ? `último bipe ${dataHoraLonga(Math.max(...state.events.map((e) => e.ts)))}`
       : "nenhum bipe importado ainda";
 
-    $("countPainel").textContent = pendencias(state.packages).length + state.aguardando.length;
-    $("countTiktok").textContent =
-      pendencias(doEmbarcador(state.packages, EMBARCADOR.TIKTOK)).length;
+    contador("countPainel", pendencias(state.packages).length + state.aguardando.length);
+    contador("countTiktok", pendencias(doEmbarcador(state.packages, EMBARCADOR.TIKTOK)).length);
     $("countPacotes").textContent = state.packages.length;
     $("countResolvidos").textContent = pacotesResolvidos(state.packages).length;
     // os contadores mostram o que falta fazer, não o total histórico
     $("countCobranca").textContent = state.byDriver.reduce((s, m) => s + m.totalAbertos, 0);
-    $("countGalpao").textContent = pacotesDoGalpao(state.packages).length;
+    contador("countGalpao", pacotesDoGalpao(state.packages).length);
     // o contador mostra o que falta ligar hoje, não o total da fila
-    $("countCliente").textContent = paraContatar(state.packages)
-      .filter((p) => !contatadoHoje(state.atividades, p.pkgId)).length;
+    contador("countCliente", paraContatar(state.packages)
+      .filter((p) => !contatadoHoje(state.atividades, p.pkgId)).length);
     $("countMotoristas").textContent = contarMotoristas(state.packages, state.byDriver, state.contatos);
     // o contador do fechamento mostra o que falta cobrar hoje, não o total
-    $("countFechamento").textContent = noCircuito(state.packages)
-      .filter((p) => !cobradoHoje(state.atividades, p.pkgId)).length + state.aguardando.length;
+    contador("countFechamento", noCircuito(state.packages)
+      .filter((p) => !cobradoHoje(state.atividades, p.pkgId)).length + state.aguardando.length);
   }
 
   renderPainel(el, state.packages, state.aguardando, state.filtroBase, state.filtroEmbarcador);

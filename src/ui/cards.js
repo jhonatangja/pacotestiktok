@@ -5,7 +5,9 @@
 // com quem está e há quanto tempo. Nada além disso — o resto é o drawer.
 // ---------------------------------------------------------------------------
 
-import { SITUACAO, BASE_OPERACAO, apelidoDaBase, EMBARCADOR, EMBARCADOR_META } from "../config.js";
+import {
+  SITUACAO, BASE_OPERACAO, apelidoDaBase, EMBARCADOR, EMBARCADOR_META, FLAG,
+} from "../config.js";
 import { proximaAcao } from "../acao.js";
 import {
   escapeHtml, TOM, tomVars, duracao, dataCurta, prazo, iniciais,
@@ -18,11 +20,11 @@ import {
  * enquanto o pacote ainda não chegou.
  */
 function idade(p) {
-  // A data de entrada aparece junto do tempo decorrido: "há 7d" responde a
-  // urgência, "desde 01/08" é o que se usa para conferir com a planilha e para
-  // dizer ao cliente desde quando o pacote está parado aqui.
-  if (p.horasNaBase != null) {
-    return `<span>No circuito desde <b>${dataCurta(p.recebidoNaBaseEm)}</b> · há <b>${duracao(p.horasNaBase)}</b></span>`;
+  // Só a DATA. O "há quanto tempo" saiu daqui porque o chip de prazo já
+  // responde isso, e melhor: ele diz se ainda dá tempo. Ter os dois no mesmo
+  // cartão era o terceiro relógio para o mesmo pacote.
+  if (p.recebidoNaBaseEm != null) {
+    return `<span>Desde <b>${dataCurta(p.recebidoNaBaseEm)}</b></span>`;
   }
   if (p.diasDesdeColeta != null) return `<span>Em trânsito · coletado há ${p.diasDesdeColeta}d</span>`;
   return "";
@@ -55,14 +57,40 @@ function embarcadorTag(p) {
     escapeHtml(p.embarcadorNome ?? m.curto)}</span>`;
 }
 
+/**
+ * Flags são HISTÓRICO — o que já aconteceu. A ação logo acima é o presente, e
+ * quatro chips coloridos tinham mais peso visual do que ela. Só as graves
+ * aparecem por extenso; o resto vira um contador que o drawer detalha.
+ *
+ * `PRAZO_ESTOURADO` fica de fora: o chip de prazo já diz isso, mais alto.
+ */
+function flagsDoCartao(p) {
+  const mostrar = p.flags.filter((f) => f !== FLAG.PRAZO_ESTOURADO);
+  if (!mostrar.length) return "";
+
+  const graves = mostrar.filter((f) => flagClasse(f) === "flag");
+  const resto = mostrar.filter((f) => flagClasse(f) !== "flag");
+
+  return `
+    <div class="flags">
+      ${graves.map((f) => `<span class="flag" title="${escapeHtml(flagHint(f))}">${escapeHtml(flagLabel(f))}</span>`).join("")}
+      ${resto.length ? `<span class="flag flag--mute" title="${
+        escapeHtml(resto.map(flagLabel).join(" · "))}">+${resto.length}</span>` : ""}
+    </div>`;
+}
+
 export function cardPacote(p, { comAcao = true } = {}) {
-  const tom = TOM[p.situacao] ?? "transito";
   // A ação é a razão do cartão existir: sem ela o operador lê um estado e
   // precisa reconstruir de cabeça o que fazer com ele.
   const acao = comAcao && !p.resolvido ? proximaAcao(p) : null;
   // O prazo com o cliente vale para todo embarcador e é o único número que diz
-  // "ainda dá" ou "já falhou" — por isso vem antes da situação.
+  // "ainda dá" ou "já falhou" — por isso é o único chip do cartão.
   const pz = p.resolvido ? null : prazo(p);
+
+  // A borda do cartão é a URGÊNCIA, não só a situação. Sem isso um pacote com
+  // prazo vencido e motorista "no prazo" ganhava borda verde e chip vermelho ao
+  // mesmo tempo — dois sinais opostos sobre o mesmo pacote.
+  const tom = p.ticketAberto || pz?.estourado ? "atrasado" : (TOM[p.situacao] ?? "transito");
 
   // o número que mais importa muda conforme a situação
   const destaque =
@@ -79,9 +107,13 @@ export function cardPacote(p, { comAcao = true } = {}) {
       : `Parado há <b>${duracao(p.horasSemMovimento)}</b>`;
 
   const motorista = p.motoristaAtual ?? p.motoristasEnvolvidos[p.motoristasEnvolvidos.length - 1];
+  // Quando o dono da ação É o motorista — os dois maiores grupos do painel —,
+  // o nome saía duas vezes no mesmo cartão, com dois tratamentos diferentes.
+  // Uma linha só, dentro da ação, responde "quem é o dono disso" de uma vez.
+  const donoEhOMotorista = !!acao?.dono && acao.dono === motorista;
 
   return `
-  <button class="pkg ${p.ticketAberto ? "pkg--ticket" : ""}" style="${tomVars(p.ticketAberto ? "atrasado" : tom)}" data-pkg="${escapeHtml(p.pkgId)}">
+  <button class="pkg ${p.ticketAberto ? "pkg--ticket" : ""}" style="${tomVars(tom)}" data-pkg="${escapeHtml(p.pkgId)}">
     <div class="pkg__top">
       <div>
         <div class="pkg__code">${p.ticketAberto ? "🔴 " : ""}${escapeHtml(p.pkgId)}${embarcadorTag(p)}</div>
@@ -90,13 +122,12 @@ export function cardPacote(p, { comAcao = true } = {}) {
           ${baseTag(p)}
         </div>
       </div>
-      <div class="pkg__pills">
-        ${pz ? `<span class="pill pill--prazo" style="${tomVars(pz.tom)}">${escapeHtml(pz.texto)}</span>` : ""}
-        <span class="pill">${escapeHtml(p.situacaoLabel)}</span>
-      </div>
+      ${pz
+        ? `<span class="pill pill--prazo" style="${tomVars(pz.tom)}">${escapeHtml(pz.texto)}</span>`
+        : `<span class="pill">${escapeHtml(p.situacaoLabel)}</span>`}
     </div>
 
-    ${motorista ? `
+    ${motorista && !donoEhOMotorista ? `
     <div class="pkg__driver${p.naBase ? " pkg__driver--base" : ""}">
       <span class="avatar${p.naBase ? " avatar--base" : ""}">${p.naBase ? "🏠" : escapeHtml(iniciais(motorista))}</span>
       <span>${escapeHtml(motorista)}${p.naBase ? " · tratativa na base" : ""}</span>
@@ -112,15 +143,14 @@ export function cardPacote(p, { comAcao = true } = {}) {
     <div class="pkg__acao ${acao.urgente ? "is-urgente" : ""}" style="${tomVars(acao.tom)}">
       <div class="pkg__acao-topo">
         <b>${escapeHtml(acao.titulo)}</b>
-        ${acao.dono ? `<span class="pkg__acao-dono">${escapeHtml(acao.dono)}</span>` : ""}
+        ${acao.dono ? `<span class="pkg__acao-dono">${
+          donoEhOMotorista ? `<span class="avatar avatar--mini">${escapeHtml(iniciais(acao.dono))}</span>` : ""
+        }${escapeHtml(acao.dono)}</span>` : ""}
       </div>
       <div class="pkg__acao-detalhe">${escapeHtml(acao.detalhe)}</div>
     </div>` : ""}
 
-    ${p.flags.length ? `
-    <div class="flags">
-      ${p.flags.map((f) => `<span class="${flagClasse(f)}" title="${escapeHtml(flagHint(f))}">${escapeHtml(flagLabel(f))}</span>`).join("")}
-    </div>` : ""}
+    ${flagsDoCartao(p)}
   </button>`;
 }
 

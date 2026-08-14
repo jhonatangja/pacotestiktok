@@ -7,6 +7,7 @@
 // ---------------------------------------------------------------------------
 
 import { FACT } from "../config.js";
+import { proximaAcao } from "../acao.js";
 import { STATUS, STATUS_META, DESFECHO, DESFECHO_META, situacaoTratativa } from "../tratativa.js";
 import { ACAO_META, doPacote } from "../atividades.js";
 import { formatarValor, enderecoCompleto } from "../enrich.js";
@@ -22,7 +23,22 @@ export function renderPacote(el, p, tratativa, dadosCliente, atividades = []) {
   el.titulo.textContent = p.pkgId;
   el.drawer.setAttribute("style", tomVars(tom));
 
+  // A MESMA frase que o cartão mostrava. Sem isto o operador clica no cartão
+  // para executar a instrução e ela desaparece na tela onde ele vai agir — o
+  // eyebrow só repete o rótulo genérico do grupo ("Definir destino").
+  const acao = p.resolvido ? null : proximaAcao(p);
+
   el.body.innerHTML = `
+    ${acao ? `
+    <div class="pkg__acao ${acao.urgente ? "is-urgente" : ""}"
+         style="${tomVars(acao.tom)};margin-bottom:18px">
+      <div class="pkg__acao-topo">
+        <b>${escapeHtml(acao.titulo)}</b>
+        ${acao.dono ? `<span class="pkg__acao-dono">${escapeHtml(acao.dono)}</span>` : ""}
+      </div>
+      <div class="pkg__acao-detalhe">${escapeHtml(acao.detalhe)}</div>
+    </div>` : ""}
+
     ${blocoTicket(p, tratativa)}
 
     ${p.flags.length ? `<div class="flags" style="margin-bottom:18px">
