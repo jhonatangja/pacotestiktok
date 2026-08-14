@@ -22,7 +22,7 @@ import { aguardandoImportacao } from "../src/aguardando.js";
 import { normalizarTelefone, telefoneValido, linkWhatsApp } from "../src/contatos.js";
 import { pacotesDoGalpao } from "../src/ui/galpao.js";
 import { listarMotoristas } from "../src/ui/motoristas.js";
-import { pacotesResolvidos, tempoDeResolucao, doPeriodo } from "../src/ui/resolvidos.js";
+import { pacotesResolvidos, tempoDeResolucao, doPeriodo, cumprimentoDoPrazo } from "../src/ui/resolvidos.js";
 import { noCircuito } from "../src/ui/fechamento.js";
 import { daBase, doEmbarcador } from "../src/ui/painel.js";
 import { proximaAcao } from "../src/acao.js";
@@ -31,7 +31,8 @@ import { ACAO, definirAutor, novaAtividade, cobradoHoje } from "../src/atividade
 import { FLAG, SITUACAO, SITUACAO_META, FACT, STAGE, SCAN_TYPES, FECHAMENTOS,
          responsavelDaConta, ehBasePropria, apelidoDaBase,
          ehCidadeBase, slaExpedicao, CAUSA, CAUSA_POR_MOTIVO, CAUSA_META,
-         assistenteDaBase, ehTikTok, embarcadorDoCodigo, EMBARCADOR } from "../src/config.js";
+         assistenteDaBase, ehTikTok, embarcadorDoCodigo, EMBARCADOR,
+         SLA_PADRAO } from "../src/config.js";
 import { VERSAO, ARQUIVOS } from "../src/versao.js";
 
 const require = createRequire(import.meta.url);
@@ -496,6 +497,61 @@ const semCausa = buildPackages([
 check("sem ocorrência não há causa", semCausa.packages[0].causa, null);
 check("sem ocorrência a ordem continua sendo entregar",
   mensagemCobranca(semCausa.byDriver[0], {}, new Date(2026, 7, 8, 9, 0)).includes("entregue HOJE"), true);
+
+// o prazo com o cliente: 1 dia do bipe de recebimento, para TODO embarcador
+check("o prazo padrão é de 24h", SLA_PADRAO.entregaHoras, 24);
+const comPrazo = packages.filter((p) => p.recebidoNaBaseEm != null);
+check("todo pacote recebido ganha um prazo",
+  comPrazo.every((p) => p.prazoEntregaEm === p.recebidoNaBaseEm + 24 * 3600000), true);
+check("pacote sem recebimento não tem prazo",
+  packages.filter((p) => p.recebidoNaBaseEm == null).every((p) => p.prazoEntregaEm == null), true);
+
+// um pacote recebido há 30h e ainda aberto está fora do prazo
+const evPrazo = (h, fact, rawType, label) => ({
+  id: `PRAZO|${h}|${fact}`, pkgId: "333333333333333", ts: agora - h * 3600000,
+  tsISO: new Date(agora - h * 3600000).toISOString(), rawType, fact, stage: STAGE.OUTRO,
+  label, base: "F RVD - GO", scanner: "F RVD - CONF", courier: "F RVD - MOTORISTA D",
+  destCity: "Rio Verde",
+});
+const vencido = buildPackages([
+  evPrazo(30, FACT.RECEBIDO_BASE, "bipe de recebimento", "Recebido"),
+  evPrazo(28, FACT.DESPACHO, "bipe de saída para entrega", "Saiu"),
+], { now: agora }).packages[0];
+check("recebido há 30h e aberto está fora do prazo", vencido.atrasadoNaEntrega, true);
+check("o atraso é contado em horas negativas", Math.round(vencido.horasParaOPrazo), -6);
+check("fora do prazo vira flag", vencido.flags.includes(FLAG.PRAZO_ESTOURADO), true);
+check("fora do prazo torna a ação urgente", proximaAcao(vencido).urgente, true);
+check("a ação avisa que o prazo venceu",
+  proximaAcao(vencido).detalhe.includes("Prazo de entrega venceu"), true);
+
+// recebido há 10h ainda está dentro
+const noPrazo = buildPackages([
+  evPrazo(10, FACT.RECEBIDO_BASE, "bipe de recebimento", "Recebido"),
+  evPrazo(8, FACT.DESPACHO, "bipe de saída para entrega", "Saiu"),
+], { now: agora }).packages[0];
+check("recebido há 10h ainda está no prazo", noPrazo.atrasadoNaEntrega, false);
+check("sobram 14h de prazo", Math.round(noPrazo.horasParaOPrazo), 14);
+check("dentro do prazo não vira flag", noPrazo.flags.includes(FLAG.PRAZO_ESTOURADO), false);
+
+// entregue: o que importa é se cumpriu, não se está atrasado
+const entregueTarde = buildPackages([
+  evPrazo(50, FACT.RECEBIDO_BASE, "bipe de recebimento", "Recebido"),
+  evPrazo(48, FACT.DESPACHO, "bipe de saída para entrega", "Saiu"),
+  evPrazo(2, FACT.ENTREGA, "assinatura de encomenda", "Entregue ao cliente"),
+], { now: agora }).packages[0];
+check("entregue fora do prazo não conta como atrasado agora",
+  entregueTarde.atrasadoNaEntrega, false);
+check("entregue fora do prazo é registrado como descumprido",
+  entregueTarde.entregueNoPrazo, false);
+const entregueCedo = buildPackages([
+  evPrazo(20, FACT.RECEBIDO_BASE, "bipe de recebimento", "Recebido"),
+  evPrazo(18, FACT.DESPACHO, "bipe de saída para entrega", "Saiu"),
+  evPrazo(2, FACT.ENTREGA, "assinatura de encomenda", "Entregue ao cliente"),
+], { now: agora }).packages[0];
+check("entregue dentro do prazo é registrado como cumprido", entregueCedo.entregueNoPrazo, true);
+check("o percentual de cumprimento é apurado",
+  cumprimentoDoPrazo([entregueCedo, entregueTarde]).pct, 50);
+check("sem encerrado com prazo não há percentual", cumprimentoDoPrazo([]), null);
 
 // embarcador pelo prefixo do código: 999 é TikTok, o resto é de outro
 check("código 999 é TikTok", ehTikTok("999881527211136"), true);

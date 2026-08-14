@@ -25,14 +25,20 @@ function itemPacote(d, enrichment, destacado) {
   ].join("");
 
   const endereco = [e?.endereco, e?.bairro].filter(Boolean).join(", ") || e?.cidade || p.destCity;
-  const tempo = `com você há ${duracao(d.horasPosse)}${d.estourado ? " (fora do prazo)" : ""}`;
+  // O prazo com o CLIENTE vale mais que o tempo de posse: é o compromisso que
+  // foi assumido, e o motorista precisa saber que ele já venceu.
+  const tempo = `com você há ${duracao(d.horasPosse)}`;
+  const venceu = p.atrasadoNaEntrega
+    ? ` · ⚠️ PRAZO VENCIDO há ${duracao(-p.horasParaOPrazo)}`
+    : (p.horasParaOPrazo != null && p.horasParaOPrazo < 8
+       ? ` · vence em ${duracao(p.horasParaOPrazo)}` : "");
   // o motivo que ELE mesmo registrou — evita a resposta "qual pacote?"
   const motivo = p.causa && p.motivoAtual ? ` · ${p.motivoAtual}` : "";
   const ticket = destacado && p.ticketRef ? ` · ticket ${p.ticketRef}` : "";
 
   return endereco
-    ? `${cabeca}\n   ${endereco}\n   ${tempo}${motivo}${ticket}`
-    : `${cabeca} · ${tempo}${motivo}${ticket}`;
+    ? `${cabeca}\n   ${endereco}\n   ${tempo}${venceu}${motivo}${ticket}`
+    : `${cabeca} · ${tempo}${venceu}${motivo}${ticket}`;
 }
 
 export function saudacao(agora = new Date()) {

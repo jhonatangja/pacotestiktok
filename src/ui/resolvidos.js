@@ -70,6 +70,14 @@ export function tempoDeResolucao(lista) {
   };
 }
 
+/** Quantos dos encerrados cumpriram o prazo de entrega combinado. */
+export function cumprimentoDoPrazo(lista) {
+  const comPrazo = lista.filter((p) => p.entregueNoPrazo != null);
+  if (!comPrazo.length) return null;
+  const dentro = comPrazo.filter((p) => p.entregueNoPrazo).length;
+  return { n: comPrazo.length, dentro, pct: Math.round((dentro / comPrazo.length) * 100) };
+}
+
 export function renderResolvidos(el, packages, tratativas, periodo = "") {
   const todos = pacotesResolvidos(packages);
 
@@ -83,6 +91,7 @@ export function renderResolvidos(el, packages, tratativas, periodo = "") {
     .sort((a, b) => (b.resolvidaEm ?? 0) - (a.resolvidaEm ?? 0));
 
   const t = tempoDeResolucao(lista);
+  const cp = cumprimentoDoPrazo(lista);
   const entregues = lista.filter((p) => p.entregueEm).length;
   const semRelogio = lista.length - (t?.n ?? 0);
 
@@ -110,9 +119,10 @@ export function renderResolvidos(el, packages, tratativas, periodo = "") {
         <span class="stat__value" style="color:var(--atrasado)">${t ? duracao(t.maisDemorado) : "—"}</span>
         <span class="stat__label">o mais demorado</span>
       </div>
-      <div class="stat" style="--accent:var(--ok)">
-        <span class="stat__value" style="color:var(--ok)">${t ? t.noMesmoDia : 0}</span>
-        <span class="stat__label">resolvidos em até 24h</span>
+      <div class="stat" style="--accent:var(--${cp && cp.pct >= 80 ? "ok" : "atrasado"})">
+        <span class="stat__value" style="color:var(--${cp && cp.pct >= 80 ? "ok" : "atrasado"})">${
+          cp ? cp.pct + "%" : "—"}</span>
+        <span class="stat__label">entregues no prazo${cp ? ` · ${cp.dentro} de ${cp.n}` : ""}</span>
       </div>
       <div class="stat" style="--accent:var(--transito)">
         <span class="stat__value">${lista.length}</span>

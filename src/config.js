@@ -175,6 +175,14 @@ export const DEDUPE = {
 export const FECHAMENTOS = [FACT.ENTREGA, FACT.OCORRENCIA, FACT.GALPAO];
 
 export const SLA_PADRAO = {
+  // O PRAZO QUE VALE PARA TUDO: 1 dia contado do `bipe de recebimento` na base.
+  //
+  // É o compromisso com o cliente, e vale para qualquer embarcador — não é o
+  // relógio do motorista nem o da expedição, que medem pedaços do caminho.
+  // Enquanto os outros dizem "quem está devendo o quê", este diz uma coisa só:
+  // este pacote ainda dá para cumprir, ou já falhou?
+  entregaHoras: 24,
+
   // Despacho aberto além disso = motorista estourou o prazo.
   // 8h = uma jornada. Definido pelo usuário em 06/08/2026.
   posseMotoristaHoras: 8,
@@ -378,6 +386,7 @@ export const CAUSA_META = {
 };
 
 export const FLAG = {
+  PRAZO_ESTOURADO:      "PRAZO_ESTOURADO",
   TICKET_CLIENTE:       "TICKET_CLIENTE",
   REBIPE_SEM_TRATATIVA: "REBIPE_SEM_TRATATIVA",
   TROCA_DE_MOTORISTA:   "TROCA_DE_MOTORISTA",
@@ -389,6 +398,10 @@ export const FLAG = {
 };
 
 export const FLAG_META = {
+  // O prazo com o cliente já passou. Pesa mais que qualquer outra coisa porque
+  // não é risco de falhar — é falha consumada, e cada hora a mais é dano.
+  [FLAG.PRAZO_ESTOURADO]:      { label: "Fora do prazo de entrega", peso: 140,
+    hint: "Passou de 24h desde o recebimento na base. O compromisso com o cliente já foi quebrado." },
   // O cliente já reclamou na TikTok Shop. Não é um alerta derivado dos bipes —
   // é marcado à mão pela operação, e vale mais que qualquer prazo.
   [FLAG.TICKET_CLIENTE]:       { label: "Ticket do cliente", peso: 120,

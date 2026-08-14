@@ -241,8 +241,21 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
   // Só vale enquanto o caso está aberto — resolvido não tem ordem pendente.
   const causaAtiva = !resolvido && causa && causa !== CAUSA.OUTRA ? causa : null;
 
+  // O prazo com o cliente: 1 dia do recebimento na base, para todo embarcador.
+  // Positivo = ainda dá tempo; negativo = já falhou, e quanto.
+  const prazoEntregaEm = recebidoNaBaseEm == null ? null
+    : recebidoNaBaseEm + sla.entregaHoras * H;
+  const horasParaOPrazo = prazoEntregaEm == null ? null
+    : round1(horas(prazoEntregaEm - now));
+  // Só é atraso enquanto o caso está aberto. Depois de entregue, o que importa
+  // é se cumpriu — e isso é `entregueNoPrazo`, apurado abaixo.
+  const atrasadoNaEntrega = !resolvido && horasParaOPrazo != null && horasParaOPrazo < 0;
+  const entregueNoPrazo = (resolvido && fimEm != null && prazoEntregaEm != null)
+    ? fimEm <= prazoEntregaEm : null;
+
   // --- flags (acumuláveis)
   const flags = [];
+  if (atrasadoNaEntrega) flags.push(FLAG.PRAZO_ESTOURADO);
 
   // Duas coisas diferentes que a cobrança precisa distinguir:
   //
@@ -323,6 +336,12 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
     // Qual das nossas bases responde por este pacote agora.
     baseResponsavel,
     transferidoEntreBases,
+
+    // O prazo com o cliente: 24h do recebimento na base, para todo embarcador.
+    prazoEntregaEm,
+    horasParaOPrazo,
+    atrasadoNaEntrega,
+    entregueNoPrazo,
 
     // De quem é o pacote — decide qual prazo cobrar e em que aba ele aparece.
     embarcador,

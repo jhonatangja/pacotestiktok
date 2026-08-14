@@ -44,6 +44,22 @@ export function dataHora(ts) {
     { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
+/**
+ * O prazo com o cliente, em linguagem de operação.
+ *
+ * "vence às 14:32" e "venceu há 3h" respondem coisas diferentes: o primeiro é
+ * planejamento do dia, o segundo é dano já feito. Um número cru de horas
+ * obrigaria o operador a fazer a conta de cabeça.
+ */
+export function prazo(p) {
+  if (p.prazoEntregaEm == null) return null;
+  const h = p.horasParaOPrazo;
+  if (h == null) return null;
+  if (h < 0) return { texto: `Venceu há ${duracao(-h)}`, tom: "atrasado", estourado: true };
+  if (h < 4) return { texto: `Vence em ${duracao(h)}`, tom: "galpao", estourado: false };
+  return { texto: `Vence ${dataHora(p.prazoEntregaEm)}`, tom: "ok", estourado: false };
+}
+
 /** Só o dia: "01/08". Para carimbar entrada no circuito sem poluir o cartão. */
 export function dataCurta(ts) {
   if (ts == null) return "—";

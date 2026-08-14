@@ -13,8 +13,17 @@
 // ---------------------------------------------------------------------------
 
 import {
-  SITUACAO, CAUSA, CAUSA_META, assistenteDaBase, EMBARCADOR_META,
+  SITUACAO, CAUSA, CAUSA_META, assistenteDaBase,
 } from "./config.js";
+
+/** "3h" / "2d 4h" — versão mínima, sem depender da camada de UI. */
+function duracaoCurta(h) {
+  if (h == null) return "—";
+  if (h < 24) return `${Math.round(h)}h`;
+  const d = Math.floor(h / 24);
+  const r = Math.round(h - d * 24);
+  return r ? `${d}d ${r}h` : `${d}d`;
+}
 
 /**
  * @returns {{ titulo, detalhe, dono, tom, urgente }}
@@ -25,6 +34,11 @@ import {
 export function proximaAcao(p) {
   const assistente = assistenteDaBase(p.baseResponsavel);
   const meta = p.causa ? CAUSA_META[p.causa] : null;
+  // O prazo com o cliente é o mesmo para todos e não depende da situação —
+  // então entra como sufixo em qualquer ação, sem repetir a regra em cada caso.
+  const atraso = p.atrasadoNaEntrega
+    ? ` Prazo de entrega venceu há ${duracaoCurta(-p.horasParaOPrazo)}.`
+    : "";
 
   if (p.resolvido) {
     return { titulo: "Nada a fazer", detalhe: "Caso encerrado.", dono: null, tom: "ok", urgente: false };
@@ -35,21 +49,21 @@ export function proximaAcao(p) {
   if (p.causa === CAUSA.ENDERECO) {
     return {
       titulo: "Ligar para o cliente",
-      detalhe: `${p.motivoAtual ?? meta.label}. Confirmar o endereço e, sem contato, mandar devolver hoje.`,
+      detalhe: `${p.motivoAtual ?? meta.label}. Confirmar o endereço e, sem contato, mandar devolver hoje.${atraso}`,
       dono: assistente, tom: "ocorrencia", urgente: true,
     };
   }
   if (p.causa === CAUSA.AUSENCIA) {
     return {
       titulo: "Combinar horário com o cliente",
-      detalhe: "Sem horário combinado, o pacote volta para o galpão hoje.",
+      detalhe: `Sem horário combinado, o pacote volta para o galpão hoje.${atraso}`,
       dono: assistente, tom: "ocorrencia", urgente: true,
     };
   }
   if (p.causa === CAUSA.FORA_DA_AREA) {
     return {
       titulo: "Mandar devolver ao galpão",
-      detalhe: `${p.motivoAtual ?? "Fora da área"} — não é cidade nossa. Devolver hoje para voltar à malha.`,
+      detalhe: `${p.motivoAtual ?? "Fora da área"} — não é cidade nossa. Devolver hoje para voltar à malha.${atraso}`,
       dono: assistente, tom: "galpao", urgente: true,
     };
   }
@@ -58,14 +72,14 @@ export function proximaAcao(p) {
     case SITUACAO.RETORNADO_GALPAO:
       return {
         titulo: "Dar dono e prazo no galpão",
-        detalhe: "Voltou fisicamente para a base. Sem responsável, ninguém toca nele.",
+        detalhe: `Voltou fisicamente para a base. Sem responsável, ninguém toca nele.${atraso}`,
         dono: assistente, tom: "galpao", urgente: true,
       };
 
     case SITUACAO.EM_TRATATIVA_BASE:
       return {
         titulo: "Resolver na base",
-        detalhe: "Está bipado numa conta de tratativa — não saiu para a rua.",
+        detalhe: `Está bipado numa conta de tratativa — não saiu para a rua.${atraso}`,
         dono: p.motoristaAtual ?? assistente, tom: "nabase", urgente: true,
       };
 
@@ -73,27 +87,27 @@ export function proximaAcao(p) {
     case SITUACAO.COM_MOTORISTA_NO_PRAZO:
       return {
         titulo: "Cobrar o motorista",
-        detalhe: EMBARCADOR_META[p.embarcador]?.mesmoDia
-          ? "Entrega no mesmo dia — entregar, registrar a problemática com evidência, ou devolver."
-          : "Entregar, registrar a problemática com evidência, ou devolver ao galpão.",
-        dono: p.motoristaAtual, tom: p.situacao === SITUACAO.COM_MOTORISTA_ESTOURADO ? "atrasado" : "ok",
-        urgente: p.situacao === SITUACAO.COM_MOTORISTA_ESTOURADO,
+        detalhe: `Entregar, registrar a problemática com evidência, ou devolver ao galpão.${atraso}`,
+        dono: p.motoristaAtual,
+        tom: p.atrasadoNaEntrega || p.situacao === SITUACAO.COM_MOTORISTA_ESTOURADO ? "atrasado" : "ok",
+        urgente: p.atrasadoNaEntrega || p.situacao === SITUACAO.COM_MOTORISTA_ESTOURADO,
       };
 
     case SITUACAO.OCORRENCIA_EM_ABERTO:
       return {
         titulo: "Definir o destino",
-        detalhe: "A problemática foi registrada e parou aí. Nova tentativa ou devolução?",
+        detalhe: `A problemática foi registrada e parou aí. Nova tentativa ou devolução?${atraso}`,
         dono: assistente, tom: "ocorrencia", urgente: true,
       };
 
     case SITUACAO.NA_BASE_NAO_EXPEDIDO:
       return {
         titulo: "Colocar na rota",
-        detalhe: p.atrasadoNaExpedicao
+        detalhe: (p.atrasadoNaExpedicao
           ? `Parado há ${Math.round(p.horasAteExpedir)}h — o prazo daqui é ${p.slaExpedicaoHoras}h.`
-          : `Dentro do prazo de ${p.slaExpedicaoHoras}h para este destino.`,
-        dono: assistente, tom: "nabase", urgente: !!p.atrasadoNaExpedicao,
+          : `Dentro do prazo de ${p.slaExpedicaoHoras}h para este destino.`) + atraso,
+        dono: assistente, tom: p.atrasadoNaEntrega ? "atrasado" : "nabase",
+        urgente: !!p.atrasadoNaExpedicao || !!p.atrasadoNaEntrega,
       };
 
     case SITUACAO.EM_TRANSITO:

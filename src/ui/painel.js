@@ -154,6 +154,10 @@ function renderStats(packages, aguardando) {
   const ticketsAguardando = aguardando.filter((a) => a.ticketAberto).length;
 
   const cards = [
+    // O prazo com o cliente vem primeiro: é o único indicador que mede falha
+    // consumada, não risco.
+    { valor: packages.filter((p) => p.atrasadoNaEntrega).length,
+      label: "fora do prazo de entrega", tom: "atrasado" },
     { valor: comTicket(packages).length + ticketsAguardando, label: "ticket do cliente", tom: "atrasado" },
     ...(aguardando.length
       ? [{ valor: aguardando.length, label: "aguardando importação", tom: "transito" }]

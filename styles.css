@@ -880,3 +880,11 @@ p { margin: 0; }
 .basebar__sep {
   width: 1px; height: 22px; background: var(--line); margin: 0 4px;
 }
+
+/* Prazo com o cliente — o chip mais importante do cartão, por isso vem antes da
+   situação e usa a mesma escala de cor com significado. */
+.pkg__pills { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+.pill--prazo {
+  font-variant-numeric: tabular-nums;
+  background: var(--tone-bg); color: var(--tone); border-color: var(--tone-line);
+}

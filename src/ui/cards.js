@@ -8,7 +8,8 @@
 import { SITUACAO, BASE_OPERACAO, apelidoDaBase, EMBARCADOR, EMBARCADOR_META } from "../config.js";
 import { proximaAcao } from "../acao.js";
 import {
-  escapeHtml, TOM, tomVars, duracao, dataCurta, iniciais, flagLabel, flagHint, flagClasse,
+  escapeHtml, TOM, tomVars, duracao, dataCurta, prazo, iniciais,
+  flagLabel, flagHint, flagClasse,
 } from "./format.js";
 
 /**
@@ -59,6 +60,9 @@ export function cardPacote(p, { comAcao = true } = {}) {
   // A ação é a razão do cartão existir: sem ela o operador lê um estado e
   // precisa reconstruir de cabeça o que fazer com ele.
   const acao = comAcao && !p.resolvido ? proximaAcao(p) : null;
+  // O prazo com o cliente vale para todo embarcador e é o único número que diz
+  // "ainda dá" ou "já falhou" — por isso vem antes da situação.
+  const pz = p.resolvido ? null : prazo(p);
 
   // o número que mais importa muda conforme a situação
   const destaque =
@@ -86,7 +90,10 @@ export function cardPacote(p, { comAcao = true } = {}) {
           ${baseTag(p)}
         </div>
       </div>
-      <span class="pill">${escapeHtml(p.situacaoLabel)}</span>
+      <div class="pkg__pills">
+        ${pz ? `<span class="pill pill--prazo" style="${tomVars(pz.tom)}">${escapeHtml(pz.texto)}</span>` : ""}
+        <span class="pill">${escapeHtml(p.situacaoLabel)}</span>
+      </div>
     </div>
 
     ${motorista ? `

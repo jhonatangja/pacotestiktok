@@ -44,6 +44,29 @@ Cada cartão agora traz a **próxima ação em uma frase, com o dono ao lado**:
 A regra vive em `src/acao.js`, sozinha: mudar o que a operação espera é mudar um arquivo,
 não seis telas.
 
+## O prazo que vale para tudo
+
+**Todo pacote precisa ser entregue em 1 dia contado do `bipe de recebimento` na base**
+(`SLA_PADRAO.entregaHoras`). Vale para qualquer embarcador — é o compromisso com o cliente,
+não o relógio do motorista nem o da expedição, que medem pedaços do caminho.
+
+É o único número que responde a pergunta binária: *este pacote ainda dá para cumprir, ou já
+falhou?* Por isso o chip do prazo vem antes da situação no cartão, e o indicador **fora do
+prazo de entrega** é o primeiro do painel.
+
+| No cartão | Quando |
+|---|---|
+| `Vence 10/08, 14:32` | mais de 4h de folga |
+| `Vence em 2h 10min` | menos de 4h — âmbar |
+| `Venceu há 6h` | já falhou — vermelho, e a ação vira urgente |
+
+Na cobrança do motorista a linha do pacote ganha **⚠️ PRAZO VENCIDO há Xh**, e a aba
+**Resolvidos** mostra o percentual de **entregues no prazo** — o indicador que diz se a
+operação cumpre o que promete.
+
+Os outros SLAs continuam existindo porque medem coisas diferentes: `posseMotoristaHoras`
+(quanto o motorista pode segurar) e `expedicao*` (quanto pode ficar parado na base).
+
 ## A regra que o sistema existe para vigiar
 
 Um pacote sob posse de motorista só tem **três saídas legítimas**:
