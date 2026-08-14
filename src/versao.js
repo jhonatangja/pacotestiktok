@@ -23,7 +23,7 @@
 // número daqui a cada publicação.
 // ---------------------------------------------------------------------------
 
-export const VERSAO = "2026-08-08.11";
+export const VERSAO = "2026-08-08.12";
 
 // Ancorada no início da linha: um exemplo dentro de um comentário não pode ser
 // confundido com a constante, ou o app se acharia velho para sempre.
@@ -36,7 +36,7 @@ const RE_VERSAO = /^export const VERSAO\s*=\s*"([^"]+)"/m;
 export const ARQUIVOS = [
   "index.html", "app.js", "styles.css",
   "src/versao.js",
-  "src/aguardando.js", "src/atividades.js", "src/charge.js", "src/config.js",
+  "src/acao.js", "src/aguardando.js", "src/atividades.js", "src/charge.js", "src/config.js",
   "src/contatos.js", "src/domain.js", "src/enrich.js", "src/export.js",
   "src/ingest.js", "src/repo-supabase.js", "src/repo.js", "src/supabase-config.js",
   "src/tratativa.js",

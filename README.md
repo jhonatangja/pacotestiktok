@@ -4,6 +4,46 @@ Sistema interno da base **F RVD - GO** (Rio Verde/GO) para transformar o log bru
 escaneamento do JMS em fila de ação: quem cobrar agora, o que tratar no galpão e o que
 não pode ser esquecido.
 
+Acompanha **todos os embarcadores**. O TikTok Shop tem aba própria porque é a operação de
+entrega no mesmo dia — as regras de prazo dele são mais duras que as dos demais.
+
+## De quem é o pacote
+
+O **código diz o embarcador**: tudo que começa com `999` é **TikTok Shop**, o resto é de
+outro (`PREFIXO_TIKTOK` em `src/config.js`). É regra da operação, não do JMS.
+
+- O **Painel de Ação** mostra tudo, com uma barra **Embarcador** no topo para recortar.
+  Ela só aparece quando há de fato mais de um embarcador com pacote — um filtro que não
+  filtra nada só confunde.
+- A aba **🛍️ TikTok Shop** é o mesmo painel travado nos códigos `999`, para acompanhar a
+  operação de mesmo dia separada das outras.
+- Pacote que **não** é TikTok leva o carimbo do embarcador ao lado do código. O nome vem da
+  coluna `Origem do Pedido` do próprio export, então "Outros" não vira um saco sem nome.
+
+A classificação usa o prefixo e não a coluna porque **o código nunca falta**; a coluna vem
+vazia em parte das linhas.
+
+## A ação visível em cada cartão
+
+O painel sempre agrupou por ação, mas o grupo diz a categoria, não a tarefa: *"Cobrar
+motorista"* não informa se é para exigir entrega, ligar para o cliente ou mandar devolver.
+
+Cada cartão agora traz a **próxima ação em uma frase, com o dono ao lado**:
+
+| Situação do pacote | O que o cartão manda fazer | Dono |
+|---|---|---|
+| ocorrência de endereço | **Ligar para o cliente** — confirmar e, sem contato, devolver hoje | assistente da base |
+| fora da área | **Mandar devolver ao galpão** | assistente da base |
+| cliente ausente | **Combinar horário com o cliente** | assistente da base |
+| com motorista | **Cobrar o motorista** | o motorista |
+| voltou ao galpão | **Dar dono e prazo no galpão** | assistente da base |
+| ocorrência sem desfecho | **Definir o destino** | assistente da base |
+| parado na base | **Colocar na rota** (com o prazo do destino) | assistente da base |
+| em trânsito | **Só acompanhar** | — |
+
+A regra vive em `src/acao.js`, sozinha: mudar o que a operação espera é mudar um arquivo,
+não seis telas.
+
 ## A regra que o sistema existe para vigiar
 
 Um pacote sob posse de motorista só tem **três saídas legítimas**:

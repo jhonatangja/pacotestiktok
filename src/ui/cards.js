@@ -5,7 +5,8 @@
 // com quem está e há quanto tempo. Nada além disso — o resto é o drawer.
 // ---------------------------------------------------------------------------
 
-import { SITUACAO, BASE_OPERACAO, apelidoDaBase, CAUSA_META } from "../config.js";
+import { SITUACAO, BASE_OPERACAO, apelidoDaBase, EMBARCADOR, EMBARCADOR_META } from "../config.js";
+import { proximaAcao } from "../acao.js";
 import {
   escapeHtml, TOM, tomVars, duracao, dataCurta, iniciais, flagLabel, flagHint, flagClasse,
 } from "./format.js";
@@ -42,8 +43,22 @@ function baseTag(p) {
     escapeHtml(apelidoDaBase(p.baseResponsavel))}${p.transferidoEntreBases ? " ⇄" : ""}</span>`;
 }
 
-export function cardPacote(p) {
+/**
+ * De qual embarcador é o pacote. Só aparece quando NÃO é TikTok: a operação é
+ * majoritariamente TikTok, e carimbar todos com o mesmo peso viraria ruído.
+ */
+function embarcadorTag(p) {
+  if (!p.embarcador || p.embarcador === EMBARCADOR.TIKTOK) return "";
+  const m = EMBARCADOR_META[p.embarcador];
+  return `<span class="emb-tag" title="Embarcador: ${escapeHtml(p.embarcadorNome ?? m.label)}">${
+    escapeHtml(p.embarcadorNome ?? m.curto)}</span>`;
+}
+
+export function cardPacote(p, { comAcao = true } = {}) {
   const tom = TOM[p.situacao] ?? "transito";
+  // A ação é a razão do cartão existir: sem ela o operador lê um estado e
+  // precisa reconstruir de cabeça o que fazer com ele.
+  const acao = comAcao && !p.resolvido ? proximaAcao(p) : null;
 
   // o número que mais importa muda conforme a situação
   const destaque =
@@ -65,7 +80,7 @@ export function cardPacote(p) {
   <button class="pkg ${p.ticketAberto ? "pkg--ticket" : ""}" style="${tomVars(p.ticketAberto ? "atrasado" : tom)}" data-pkg="${escapeHtml(p.pkgId)}">
     <div class="pkg__top">
       <div>
-        <div class="pkg__code">${p.ticketAberto ? "🔴 " : ""}${escapeHtml(p.pkgId)}</div>
+        <div class="pkg__code">${p.ticketAberto ? "🔴 " : ""}${escapeHtml(p.pkgId)}${embarcadorTag(p)}</div>
         <div class="pkg__dest">
           ${escapeHtml(p.destCity ?? "—")}${p.destState ? "/" + escapeHtml(p.destState) : ""}
           ${baseTag(p)}
@@ -86,10 +101,13 @@ export function cardPacote(p) {
       ${p.totalDespachos > 1 ? `<span><b>${p.totalDespachos}</b> despachos</span>` : ""}
     </div>
 
-    ${p.causa && CAUSA_META[p.causa] ? `
-    <div class="pkg__ordem" title="${escapeHtml(CAUSA_META[p.causa].ordem)}">
-      <b>${escapeHtml(p.motivoAtual ?? CAUSA_META[p.causa].label)}</b>
-      → ${escapeHtml(CAUSA_META[p.causa].resumo)}
+    ${acao ? `
+    <div class="pkg__acao ${acao.urgente ? "is-urgente" : ""}" style="${tomVars(acao.tom)}">
+      <div class="pkg__acao-topo">
+        <b>${escapeHtml(acao.titulo)}</b>
+        ${acao.dono ? `<span class="pkg__acao-dono">${escapeHtml(acao.dono)}</span>` : ""}
+      </div>
+      <div class="pkg__acao-detalhe">${escapeHtml(acao.detalhe)}</div>
     </div>` : ""}
 
     ${p.flags.length ? `

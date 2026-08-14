@@ -52,6 +52,42 @@ export const COLUMNS = [
     keywords: ["tempo de upload", "upload"] },
 ];
 
+// ---------------------------------------------------------------------------
+// EMBARCADOR — de quem é o pacote
+//
+// A base entrega para vários embarcadores, e o código diz de quem é: tudo que
+// começa com `999` é TikTok Shop, o resto é de outro. É uma regra da operação,
+// não do JMS — e é ela que decide qual prazo cobrar.
+//
+// O export de escaneamento também traz `Origem do Pedido`, que NOMEIA o
+// embarcador. Ela é usada como rótulo (para "Outros" não virar um saco sem
+// nome), mas quem manda na classificação é o prefixo: a coluna vem vazia em
+// parte das linhas, o código nunca.
+// ---------------------------------------------------------------------------
+export const PREFIXO_TIKTOK = "999";
+
+export const EMBARCADOR = {
+  TIKTOK: "TIKTOK",
+  OUTROS: "OUTROS",
+};
+
+export const EMBARCADOR_META = {
+  [EMBARCADOR.TIKTOK]: {
+    label: "TikTok Shop", curto: "TikTok", icone: "🛍️", tom: "atrasado",
+    // O que muda de verdade: TikTok é entrega no mesmo dia. Ver SLA_PADRAO.
+    mesmoDia: true,
+  },
+  [EMBARCADOR.OUTROS]: {
+    label: "Outros embarcadores", curto: "Outros", icone: "📦", tom: "transito",
+    mesmoDia: false,
+  },
+};
+
+export const ehTikTok = (pkgId) => String(pkgId ?? "").startsWith(PREFIXO_TIKTOK);
+
+export const embarcadorDoCodigo = (pkgId) =>
+  ehTikTok(pkgId) ? EMBARCADOR.TIKTOK : EMBARCADOR.OUTROS;
+
 // Fatos operacionais — o vocabulário interno do sistema.
 export const FACT = {
   COLETA:        "COLETA",

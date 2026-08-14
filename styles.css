@@ -848,3 +848,35 @@ p { margin: 0; }
   background: var(--surface-2); border: 1px solid var(--line);
   border-radius: 9px; padding: 8px 11px;
 }
+
+/* ------------------------------------------------ ação no cartão */
+/* A tarefa em uma frase, com o dono ao lado. Fica depois dos fatos e antes das
+   flags: os fatos explicam por quê, as flags são histórico — a ação é agora. */
+.pkg__acao {
+  border-radius: 10px; padding: 9px 11px;
+  background: var(--tone-bg); border: 1px solid var(--tone-line);
+}
+.pkg__acao.is-urgente { box-shadow: inset 3px 0 0 var(--tone); }
+.pkg__acao-topo {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  font-size: 13.5px; color: var(--tone);
+}
+.pkg__acao-topo b { font-weight: 680; }
+.pkg__acao-dono {
+  font-size: 11px; font-weight: 600; color: var(--ink-2);
+  background: var(--surface); border: 1px solid var(--line);
+  padding: 1px 8px; border-radius: 99px; white-space: nowrap;
+}
+.pkg__acao-detalhe { margin-top: 3px; font-size: 12.5px; line-height: 1.45; color: var(--ink-2); }
+
+/* Embarcador que não é TikTok — carimbo discreto ao lado do código. */
+.emb-tag {
+  display: inline-block; margin-left: 7px; padding: 1px 7px; border-radius: 99px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .02em; vertical-align: 1px;
+  color: var(--nabase); background: var(--nabase-bg); border: 1px solid var(--nabase-line);
+}
+
+/* Separador entre as duas barras de filtro (embarcador | responsabilidade). */
+.basebar__sep {
+  width: 1px; height: 22px; background: var(--line); margin: 0 4px;
+}

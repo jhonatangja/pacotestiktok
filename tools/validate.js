@@ -24,13 +24,14 @@ import { pacotesDoGalpao } from "../src/ui/galpao.js";
 import { listarMotoristas } from "../src/ui/motoristas.js";
 import { pacotesResolvidos, tempoDeResolucao, doPeriodo } from "../src/ui/resolvidos.js";
 import { noCircuito } from "../src/ui/fechamento.js";
-import { daBase } from "../src/ui/painel.js";
+import { daBase, doEmbarcador } from "../src/ui/painel.js";
+import { proximaAcao } from "../src/acao.js";
 import { paraContatar } from "../src/ui/cliente.js";
 import { ACAO, definirAutor, novaAtividade, cobradoHoje } from "../src/atividades.js";
 import { FLAG, SITUACAO, SITUACAO_META, FACT, STAGE, SCAN_TYPES, FECHAMENTOS,
          responsavelDaConta, ehBasePropria, apelidoDaBase,
          ehCidadeBase, slaExpedicao, CAUSA, CAUSA_POR_MOTIVO, CAUSA_META,
-         assistenteDaBase } from "../src/config.js";
+         assistenteDaBase, ehTikTok, embarcadorDoCodigo, EMBARCADOR } from "../src/config.js";
 import { VERSAO, ARQUIVOS } from "../src/versao.js";
 
 const require = createRequire(import.meta.url);
@@ -495,6 +496,51 @@ const semCausa = buildPackages([
 check("sem ocorrência não há causa", semCausa.packages[0].causa, null);
 check("sem ocorrência a ordem continua sendo entregar",
   mensagemCobranca(semCausa.byDriver[0], {}, new Date(2026, 7, 8, 9, 0)).includes("entregue HOJE"), true);
+
+// embarcador pelo prefixo do código: 999 é TikTok, o resto é de outro
+check("código 999 é TikTok", ehTikTok("999881527211136"), true);
+check("código de outro prefixo não é TikTok", ehTikTok("123456789012345"), false);
+check("código vazio não vira TikTok por engano", ehTikTok(""), false);
+check("classificação do TikTok", embarcadorDoCodigo("999881527211136"), EMBARCADOR.TIKTOK);
+check("classificação dos demais", embarcadorDoCodigo("770000000000001"), EMBARCADOR.OUTROS);
+check("todo pacote da amostra é TikTok",
+  packages.every((p) => p.embarcador === EMBARCADOR.TIKTOK), true);
+check("o nome do embarcador vem da coluna Origem do Pedido quando existe",
+  typeof packages[0].embarcadorNome, "string");
+
+// um pacote de outro embarcador convive com os do TikTok
+const deOutro = buildPackages([{
+  id: "OUTRO|1", pkgId: "770000000000001", ts: agora - 5 * 3600000,
+  tsISO: new Date(agora - 5 * 3600000).toISOString(),
+  rawType: "bipe de recebimento", fact: FACT.RECEBIDO_BASE, stage: STAGE.BASE_FINAL,
+  label: "Recebido na base final", base: "F RVD - GO", destCity: "Rio Verde",
+}], { now: agora });
+check("pacote de outro embarcador é classificado como Outros",
+  deOutro.packages[0].embarcador, EMBARCADOR.OUTROS);
+check("filtro por embarcador isola o TikTok",
+  doEmbarcador([...packages, ...deOutro.packages], EMBARCADOR.TIKTOK).length, packages.length);
+check("filtro por embarcador isola os demais",
+  doEmbarcador([...packages, ...deOutro.packages], EMBARCADOR.OUTROS).length, 1);
+check("filtro vazio devolve os dois embarcadores",
+  doEmbarcador([...packages, ...deOutro.packages], "").length, packages.length + 1);
+
+// a ação visível: cada situação vira uma frase imperativa com dono
+const acoes = packages.filter((p) => !p.resolvido).map((p) => proximaAcao(p));
+check("todo pacote em aberto tem uma ação", acoes.every((a) => a.titulo && a.detalhe), true);
+check("pacote resolvido não pede ação",
+  proximaAcao({ ...packages[0], resolvido: true }).urgente, false);
+check("endereço incorreto manda ligar para o cliente",
+  proximaAcao(comEndereco.packages[0]).titulo, "Ligar para o cliente");
+check("fora da área manda devolver",
+  proximaAcao(foraDaArea.packages[0]).titulo, "Mandar devolver ao galpão");
+check("a ação de endereço é do assistente da base",
+  proximaAcao(comEndereco.packages[0]).dono, "SAMUEL RVD 1");
+check("pacote com motorista e sem ocorrência manda cobrar",
+  proximaAcao(semCausa.packages[0]).titulo, "Cobrar o motorista");
+check("a cobrança é do motorista que está com ele",
+  proximaAcao(semCausa.packages[0]).dono, "MOTORISTA C");
+check("em trânsito não pede ação",
+  proximaAcao({ situacao: SITUACAO.EM_TRANSITO, resolvido: false }).urgente, false);
 
 // a fila de contato com o cliente: só as causas que uma ligação resolve
 check("endereço exige contato", CAUSA_META[CAUSA.ENDERECO].exigeContato, true);

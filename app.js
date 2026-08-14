@@ -9,8 +9,8 @@
 import { createRepo } from "./src/repo.js";
 import { buildEvents, dedupeEvents, mergeEvents, parseWorkbook, reclassifyEvents } from "./src/ingest.js";
 import { buildPackages } from "./src/domain.js";
-import { SITUACAO_META, SLA_PADRAO } from "./src/config.js";
-import { renderPainel, pendencias } from "./src/ui/painel.js";
+import { SITUACAO_META, SLA_PADRAO, EMBARCADOR } from "./src/config.js";
+import { renderPainel, pendencias, doEmbarcador } from "./src/ui/painel.js";
 import { renderPacote } from "./src/ui/pacote.js";
 import { renderCobranca } from "./src/ui/cobranca.js";
 import { renderGalpao, pacotesDoGalpao } from "./src/ui/galpao.js";
@@ -55,6 +55,8 @@ const state = {
   atividades: [],       // log append-only de quem fez o quê
   aguardando: [],       // códigos lançados à mão, ainda sem bipe no JMS
   filtroBase: "",       // painel: só a base escolhida ("" = todas)
+  filtroEmbarcador: "", // painel: só o embarcador escolhido ("" = todos)
+  filtroBaseTiktok: "", // aba TikTok: mesma coisa, escopo próprio
   periodoResolvidos: "30",  // resolvidos: janela do tempo médio de resolução
   buscaMotorista: "",
   pacoteAberto: null,
@@ -68,8 +70,13 @@ const el = {
     pacotes: $("screenPacotes"), cobranca: $("screenCobranca"), galpao: $("screenGalpao"),
     resolvidos: $("screenResolvidos"), motoristas: $("screenMotoristas"),
     fechamento: $("screenFechamento"), cliente: $("screenCliente"),
+    tiktok: $("screenTiktok"),
   },
   stats: $("stats"), grupos: $("grupos"), filtroBases: $("filtroBases"),
+  // a aba do TikTok reusa o mesmo render, com os próprios nós
+  tiktok: {
+    stats: $("statsTiktok"), grupos: $("gruposTiktok"), filtroBases: $("filtroBasesTiktok"),
+  },
   listaPacotes: $("listaPacotes"), busca: $("buscaPacote"), filtroSituacao: $("filtroSituacao"),
   dropzone: $("dropzone"), dropzoneTitle: $("dropzoneTitle"), fileInput: $("fileInput"),
   importResult: $("importResult"), baseAtual: $("baseAtual"), baseAtualKv: $("baseAtualKv"),
@@ -195,6 +202,8 @@ function renderTudo() {
       : "nenhum bipe importado ainda";
 
     $("countPainel").textContent = pendencias(state.packages).length + state.aguardando.length;
+    $("countTiktok").textContent =
+      pendencias(doEmbarcador(state.packages, EMBARCADOR.TIKTOK)).length;
     $("countPacotes").textContent = state.packages.length;
     $("countResolvidos").textContent = pacotesResolvidos(state.packages).length;
     // os contadores mostram o que falta fazer, não o total histórico
@@ -209,7 +218,10 @@ function renderTudo() {
       .filter((p) => !cobradoHoje(state.atividades, p.pkgId)).length + state.aguardando.length;
   }
 
-  renderPainel(el, state.packages, state.aguardando, state.filtroBase);
+  renderPainel(el, state.packages, state.aguardando, state.filtroBase, state.filtroEmbarcador);
+  // mesma tela, escopo travado no TikTok: sem barra de embarcador, porque um
+  // filtro que não filtra nada só confunde
+  renderPainel(el.tiktok, state.packages, [], state.filtroBaseTiktok, "", EMBARCADOR.TIKTOK);
   renderListaPacotes();
   renderCobranca(el.cobranca, state.byDriver, state.motorista, state.cobrancas, state.enrichment, state.contatos);
   renderGalpao(el.galpao, state.packages, state.tratativas);
@@ -712,7 +724,10 @@ el.filtroBases?.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-base]");
   if (!btn) return;
   state.filtroBase = btn.dataset.base;
-  renderPainel(el, state.packages, state.aguardando, state.filtroBase);
+  renderPainel(el, state.packages, state.aguardando, state.filtroBase, state.filtroEmbarcador);
+  // mesma tela, escopo travado no TikTok: sem barra de embarcador, porque um
+  // filtro que não filtra nada só confunde
+  renderPainel(el.tiktok, state.packages, [], state.filtroBaseTiktok, "", EMBARCADOR.TIKTOK);
 });
 
 document.addEventListener("click", async (e) => {

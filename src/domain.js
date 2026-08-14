@@ -13,6 +13,7 @@ import {
   FACT, FECHAMENTOS, SLA_PADRAO, PREFIXO_MOTORISTA_PADRAO, ehBasePropria,
   SITUACAO, SITUACAO_META, FLAG, FLAG_META, CLIENTE_AGUARDANDO_SEMPRE,
   responsavelDaConta, ehCidadeBase, slaExpedicao, CAUSA_POR_MOTIVO, CAUSA,
+  embarcadorDoCodigo, EMBARCADOR_META,
 } from "./config.js";
 import { sortEvents, stripDriverPrefix, normalize as normalizarTexto } from "./ingest.js";
 import { STATUS, DESFECHO } from "./tratativa.js";
@@ -217,6 +218,14 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
   // depende da cidade — pacote da cidade base sai na rota do dia, pacote de
   // interior espera a viagem daquela cidade.
   const ctx = timeline.find((e) => e.destCity) ?? {};
+
+  // De quem é o pacote. O prefixo do código manda porque nunca falta; a coluna
+  // `Origem do Pedido` entra só como nome, e vem vazia em parte das linhas —
+  // por isso é procurada na timeline inteira, não só no primeiro evento.
+  const embarcador = embarcadorDoCodigo(pkgId);
+  const embarcadorNome = timeline.find((e) => e.orderSource)?.orderSource
+    ?? EMBARCADOR_META[embarcador]?.curto ?? null;
+
   const naCidadeBase = ehCidadeBase(ctx.destCity);
   const slaExpedicaoHoras = slaExpedicao(ctx.destCity, sla);
 
@@ -314,6 +323,10 @@ function montarPacote(pkgId, timeline, { now, sla, prefixo, tratativa }) {
     // Qual das nossas bases responde por este pacote agora.
     baseResponsavel,
     transferidoEntreBases,
+
+    // De quem é o pacote — decide qual prazo cobrar e em que aba ele aparece.
+    embarcador,
+    embarcadorNome,
 
     // A causa da última ocorrência — é ela que decide a ordem da cobrança.
     causa: causaAtiva,

@@ -10,7 +10,10 @@
 // juntos. O prazo muda a cor do cartão, não o que precisa ser feito.
 // ---------------------------------------------------------------------------
 
-import { SITUACAO, SITUACAO_META, FLAG, BASES_OPERACAO, apelidoDaBase } from "../config.js";
+import {
+  SITUACAO, SITUACAO_META, FLAG, BASES_OPERACAO, apelidoDaBase,
+  EMBARCADOR, EMBARCADOR_META,
+} from "../config.js";
 import { escapeHtml, TOM, tomVars, duracao } from "./format.js";
 import { cardPacote, cardAguardando, listaVazia } from "./cards.js";
 
@@ -27,7 +30,7 @@ const EXIGE_ACAO = [
 
 const DICA = {
   "Tratar no galpão":  "Voltou fisicamente para a base. Precisa de dono e prazo.",
-  "Cobrar motorista":  "TikTok é entrega no mesmo dia — todo pacote com motorista é pendência viva.",
+  "Cobrar motorista":  "Todo pacote na mão do motorista é pendência viva — no TikTok, entrega no mesmo dia.",
   "Tratar na base":    "Bipado para uma conta de tratativa. Está aqui dentro — não há motorista a cobrar.",
   "Definir destino":   "Registrou a problemática e parou aí. Onde o pacote está?",
   "Expedir da base":   "Recebido e não despachado. O gargalo é interno, não do motorista.",
@@ -48,7 +51,16 @@ export function comTicket(packages) {
 export const daBase = (packages, base) =>
   !base ? packages : packages.filter((p) => p.baseResponsavel === base);
 
-export function renderPainel(el, todos, aguardando = [], base = "") {
+/** Só os pacotes do embarcador escolhido. "" = todos. */
+export const doEmbarcador = (packages, emb) =>
+  !emb ? packages : packages.filter((p) => p.embarcador === emb);
+
+/**
+ * @param {string} embarcador  trava a tela num embarcador (a aba exclusiva do
+ *   TikTok passa por aqui). Quando travado, a barra de embarcador não aparece —
+ *   um filtro que não filtra nada só confunde.
+ */
+export function renderPainel(el, todos, aguardando = [], base = "", embarcador = "", travado = "") {
   if (el.filtroBases) el.filtroBases.innerHTML = "";
 
   if (!todos.length && !aguardando.length) {
@@ -65,13 +77,46 @@ export function renderPainel(el, todos, aguardando = [], base = "") {
     return;
   }
 
-  if (el.filtroBases) el.filtroBases.innerHTML = renderFiltroBases(abertos, base);
+  // O escopo do embarcador vem primeiro: a barra de bases precisa contar dentro
+  // do que a aba mostra, não do total geral.
+  const noEscopo = doEmbarcador(abertos, travado || embarcador);
+
+  if (el.filtroBases) {
+    el.filtroBases.innerHTML =
+      (travado ? "" : renderFiltroEmbarcador(abertos, embarcador)) +
+      renderFiltroBases(noEscopo, base);
+  }
 
   // O que não é da base escolhida sai da tela inteira — inclusive dos números,
   // senão o indicador diria uma coisa e a lista mostraria outra.
-  const packages = daBase(abertos, base);
-  el.stats.innerHTML = renderStats(packages, base ? [] : aguardando);
-  el.grupos.innerHTML = renderGrupos(packages, base ? [] : aguardando);
+  const packages = daBase(noEscopo, base);
+  // O "aguardando importação" é código lançado à mão, sem bipe: não tem base
+  // nem embarcador conhecido, então só aparece na visão sem recorte.
+  const semRecorte = !base && !embarcador && !travado;
+  el.stats.innerHTML = renderStats(packages, semRecorte ? aguardando : []);
+  el.grupos.innerHTML = renderGrupos(packages, semRecorte ? aguardando : []);
+}
+
+/**
+ * A base entrega para mais de um embarcador e as regras não são as mesmas —
+ * TikTok é entrega no mesmo dia, os outros não. Misturar tudo numa lista só
+ * esconde de quem é a cobrança.
+ */
+function renderFiltroEmbarcador(packages, atual) {
+  const conta = (e) => packages.filter((p) => p.embarcador === e).length;
+  const comPacote = Object.keys(EMBARCADOR_META).filter((e) => conta(e) > 0);
+  if (comPacote.length < 2) return "";
+
+  const botao = (valor, rotulo, n) => `
+    <button class="basebtn ${atual === valor ? "is-on" : ""}" data-embarcador="${escapeHtml(valor)}">
+      ${escapeHtml(rotulo)} <span class="basebtn__n">${n}</span>
+    </button>`;
+
+  return `
+    <span class="basebar__label">Embarcador</span>
+    ${botao("", "Todos", packages.length)}
+    ${comPacote.map((e) => botao(e, `${EMBARCADOR_META[e].icone} ${EMBARCADOR_META[e].curto}`, conta(e))).join("")}
+    <span class="basebar__sep"></span>`;
 }
 
 /**
